@@ -30,10 +30,10 @@ export class StockService {
         movementType = 'OUT';
         reason = 'PRODUCTION';
       } else if (product.type === 'Beli') {
-        // Purchase items: production increases stock (we're buying more)
-        newStock = currentStock + item.quantity;
-        movementType = 'IN';
-        reason = 'PURCHASE';
+        // Beli items: track usage/consumption (no actual stock reduction but track usage)
+        newStock = currentStock + item.quantity; // Track cumulative usage
+        movementType = 'OUT'; // This is consumption/usage
+        reason = 'SALES'; // Changed from PURCHASE to SALES since this is a sale transaction
       } else {
         // Default to stock behavior
         newStock = currentStock - item.quantity;

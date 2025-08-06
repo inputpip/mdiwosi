@@ -26,6 +26,7 @@ import {
   BookCheck,
   BarChart3,
   PackageOpen,
+  Package2,
   Shield,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -78,6 +79,7 @@ const menuItems = [
     title: "Laporan",
     items: [
       { href: "/stock-report", label: "Laporan Stock", icon: BarChart3 },
+      { href: "/material-movements", label: "Pergerakan Penggunaan Bahan", icon: Package2 },
       { href: "/transaction-items-report", label: "Laporan Item Keluar", icon: PackageOpen },
       { href: "/attendance/report", label: "Laporan Absensi", icon: BookCheck },
       { href: "/financial-report", label: "Laporan Keuangan", icon: DollarSign },

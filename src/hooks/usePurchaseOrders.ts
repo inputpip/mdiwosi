@@ -3,6 +3,7 @@ import { PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder'
 import { supabase } from '@/integrations/supabase/client'
 import { useExpenses } from './useExpenses'
 import { useMaterials } from './useMaterials'
+import { useMaterialMovements } from './useMaterialMovements'
 
 const fromDb = (dbPo: any): PurchaseOrder => ({
   id: dbPo.id,
@@ -37,6 +38,7 @@ export const usePurchaseOrders = () => {
   const queryClient = useQueryClient();
   const { addExpense } = useExpenses();
   const { addStock } = useMaterials();
+  const { createMaterialMovement } = useMaterialMovements();
 
   const { data: purchaseOrders, isLoading } = useQuery<PurchaseOrder[]>({
     queryKey: ['purchaseOrders'],
@@ -106,10 +108,45 @@ export const usePurchaseOrders = () => {
 
   const receivePurchaseOrder = useMutation({
     mutationFn: async (po: PurchaseOrder) => {
-      // 1. Add stock
+      // Get current material data including type
+      const { data: material, error: materialError } = await supabase
+        .from('materials')
+        .select('current_stock, name, type')
+        .eq('id', po.materialId)
+        .single();
+      
+      if (materialError) throw materialError;
+
+      const previousStock = Number(material.current_stock) || 0;
+      const newStock = previousStock + po.quantity;
+
+      // Determine movement type based on material type
+      const movementType = material.type === 'Stock' ? 'IN' : 'OUT';
+      const reason = material.type === 'Stock' ? 'PURCHASE' : 'PRODUCTION_CONSUMPTION';
+      const notes = material.type === 'Stock' 
+        ? `Purchase order ${po.id} - Stock received`
+        : `Purchase order ${po.id} - Usage/consumption tracked`;
+
+      // 1. Create material movement with proper reference
+      await createMaterialMovement.mutateAsync({
+        materialId: po.materialId,
+        materialName: material.name,
+        type: movementType,
+        reason: reason,
+        quantity: po.quantity,
+        previousStock,
+        newStock,
+        referenceId: po.id,
+        referenceType: 'purchase_order',
+        notes: notes,
+        userId: po.requestedBy,
+        userName: po.requestedBy,
+      });
+
+      // 2. Update material stock/usage counter
       await addStock.mutateAsync({ materialId: po.materialId, quantity: po.quantity });
 
-      // 2. Update PO status
+      // 3. Update PO status
       const { data, error } = await supabase.from('purchase_orders').update({ status: 'Selesai' }).eq('id', po.id).select().single();
       if (error) throw error;
 
@@ -118,6 +155,7 @@ export const usePurchaseOrders = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchaseOrders'] });
       queryClient.invalidateQueries({ queryKey: ['materials'] });
+      queryClient.invalidateQueries({ queryKey: ['materialMovements'] });
     }
   });
 

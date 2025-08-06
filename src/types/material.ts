@@ -1,9 +1,9 @@
-export type MaterialType = 'Stock' | 'Beli';
+export type MaterialType = 'Stock' | 'Beli' | 'Jasa';
 
 export interface Material {
   id: string;
   name: string;
-  type: MaterialType; // Jenis bahan: Stock (produksi kurangi stock), Beli (produksi tambah stock)
+  type: MaterialType; // Stock (punya stok), Beli (konsumsi/usage tracking), Jasa (layanan)
   unit: string; // satuan (meter, lembar, kg, etc)
   pricePerUnit: number;
   stock: number;

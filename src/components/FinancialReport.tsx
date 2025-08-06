@@ -62,7 +62,7 @@ export function FinancialReport() {
   }, [transactions, expenses, transfers, dateRange])
 
   const summary = useMemo(() => {
-    const totalIncome = filteredData.income.reduce((sum, t) => sum + t.total, 0)
+    const totalIncome = filteredData.income.reduce((sum, t) => sum + t.paidAmount, 0)
     const totalExpense = filteredData.expense.reduce((sum, e) => sum + e.amount, 0)
     const netProfit = totalIncome - totalExpense
     return { totalIncome, totalExpense, netProfit }
@@ -105,7 +105,7 @@ export function FinancialReport() {
 
   const kasKecilReport = useMemo(() => {
     const kasKecilAccount = accounts?.find(a => a.name.toLowerCase() === 'kas kecil');
-    if (!kasKecilAccount || !transactions || !expenses || !advances) return null;
+    if (!kasKecilAccount || !transactions || !expenses || !advances || !transfers) return null;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -113,18 +113,30 @@ export function FinancialReport() {
 
     const isToday = (date: Date) => new Date(date) >= today && new Date(date) < tomorrow;
 
-    const incomeToKasKecil = transactions.filter(t => t.paymentAccountId === kasKecilAccount.id && isToday(t.orderDate)).reduce((sum, t) => sum + t.total, 0);
+    const incomeToKasKecil = transactions.filter(t => t.paymentAccountId === kasKecilAccount.id && isToday(t.orderDate)).reduce((sum, t) => sum + t.paidAmount, 0);
     const expenseFromKasKecil = expenses.filter(e => e.accountId === kasKecilAccount.id && isToday(e.date)).reduce((sum, e) => sum + e.amount, 0);
     const advancesFromKasKecil = advances.filter(a => a.accountId === kasKecilAccount.id && isToday(a.date)).reduce((sum, a) => sum + a.amount, 0);
     
-    const totalDailyIncome = incomeToKasKecil;
-    const totalDailyExpense = expenseFromKasKecil + advancesFromKasKecil;
+    // Calculate transfer impact on Kas Kecil today
+    const transfersToKasKecil = transfers.filter(t => t.toAccountId === kasKecilAccount.id && isToday(t.createdAt)).reduce((sum, t) => sum + t.amount, 0);
+    const transfersFromKasKecil = transfers.filter(t => t.fromAccountId === kasKecilAccount.id && isToday(t.createdAt)).reduce((sum, t) => sum + t.amount, 0);
+    
+    const totalDailyIncome = incomeToKasKecil + transfersToKasKecil;
+    const totalDailyExpense = expenseFromKasKecil + advancesFromKasKecil + transfersFromKasKecil;
 
     const openingBalance = kasKecilAccount.balance - totalDailyIncome + totalDailyExpense;
     const closingBalance = openingBalance + totalDailyIncome - totalDailyExpense;
 
-    return { openingBalance, incomeToKasKecil, expenseFromKasKecil, advancesFromKasKecil, closingBalance };
-  }, [accounts, transactions, expenses, advances]);
+    return { 
+      openingBalance, 
+      incomeToKasKecil, 
+      expenseFromKasKecil, 
+      advancesFromKasKecil, 
+      transfersToKasKecil,
+      transfersFromKasKecil,
+      closingBalance 
+    };
+  }, [accounts, transactions, expenses, advances, transfers]);
 
   const generatePdf = () => {
     const doc = new jsPDF()
@@ -171,7 +183,7 @@ export function FinancialReport() {
     autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 20,
       head: [['Tanggal', 'No. Order', 'Pelanggan', 'Total']],
-      body: filteredData.income.map(t => [format(new Date(t.orderDate), "d MMM yyyy", { locale: id }), t.id, t.customerName, new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(t.total)]),
+      body: filteredData.income.map(t => [format(new Date(t.orderDate), "d MMM yyyy", { locale: id }), t.id, t.customerName, new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(t.paidAmount)]),
       theme: 'grid',
       headStyles: { fillColor: [240, 240, 240], textColor: [50, 50, 50], fontStyle: 'bold' },
       didDrawPage: (data) => { doc.setFontSize(8).setTextColor(150).text(`Halaman ${data.pageNumber}`, pageWidth / 2, pageHeight - 10, { align: 'center' }); }
@@ -210,9 +222,11 @@ export function FinancialReport() {
       head: [['Deskripsi', 'Jumlah']],
       body: [
         ['Saldo Awal', new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.openingBalance)],
-        ['Pemasukan Hari Ini', new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.incomeToKasKecil)],
+        ['Pemasukan Transaksi', new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.incomeToKasKecil)],
+        ['Transfer Masuk', new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.transfersToKasKecil || 0)],
         ['Pengeluaran Kantor', new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.expenseFromKasKecil)],
         ['Panjar Karyawan', new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.advancesFromKasKecil)],
+        ['Transfer Keluar', new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.transfersFromKasKecil || 0)],
         ['Saldo Akhir', new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.closingBalance)],
       ],
       theme: 'striped',
@@ -279,11 +293,13 @@ export function FinancialReport() {
               <CardTitle>Laporan Kas Kecil Harian</CardTitle>
               <CardDescription>Ringkasan arus kas untuk akun Kas Kecil pada hari ini, {format(new Date(), "d MMMM yyyy", { locale: id })}.</CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-4 md:grid-cols-5">
+            <CardContent className="grid gap-4 md:grid-cols-7">
               <div className="border p-4 rounded-lg"><p className="text-sm text-muted-foreground">Saldo Awal</p><p className="font-bold">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.openingBalance)}</p></div>
-              <div className="border p-4 rounded-lg"><p className="text-sm text-muted-foreground">Pemasukan</p><p className="font-bold text-green-600">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.incomeToKasKecil)}</p></div>
+              <div className="border p-4 rounded-lg"><p className="text-sm text-muted-foreground">Pemasukan Transaksi</p><p className="font-bold text-green-600">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.incomeToKasKecil)}</p></div>
+              <div className="border p-4 rounded-lg"><p className="text-sm text-muted-foreground">Transfer Masuk</p><p className="font-bold text-blue-600">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.transfersToKasKecil)}</p></div>
               <div className="border p-4 rounded-lg"><p className="text-sm text-muted-foreground">Pengeluaran Kantor</p><p className="font-bold text-red-600">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.expenseFromKasKecil)}</p></div>
               <div className="border p-4 rounded-lg"><p className="text-sm text-muted-foreground">Panjar Karyawan</p><p className="font-bold text-red-600">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.advancesFromKasKecil)}</p></div>
+              <div className="border p-4 rounded-lg"><p className="text-sm text-muted-foreground">Transfer Keluar</p><p className="font-bold text-orange-600">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.transfersFromKasKecil)}</p></div>
               <div className="border p-4 rounded-lg bg-muted"><p className="text-sm text-muted-foreground">Saldo Akhir</p><p className="font-bold">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(kasKecilReport.closingBalance)}</p></div>
             </CardContent>
           </Card>
@@ -331,7 +347,7 @@ export function FinancialReport() {
       </Card>
       
       <div className="grid gap-6 md:grid-cols-2">
-        <Card id="pendapatan-details"><CardHeader><CardTitle>Rincian Pendapatan</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Pelanggan</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader><TableBody>{filteredData.income.map(t => <TableRow key={t.id}><TableCell>{format(new Date(t.orderDate), "d MMM yyyy")}</TableCell><TableCell>{t.customerName}</TableCell><TableCell className="text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(t.total)}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
+        <Card id="pendapatan-details"><CardHeader><CardTitle>Rincian Pendapatan</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Pelanggan</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader><TableBody>{filteredData.income.map(t => <TableRow key={t.id}><TableCell>{format(new Date(t.orderDate), "d MMM yyyy")}</TableCell><TableCell>{t.customerName}</TableCell><TableCell className="text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(t.paidAmount)}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
         <Card id="pengeluaran-details"><CardHeader><CardTitle>Rincian Pengeluaran</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Tanggal</TableHead><TableHead>Deskripsi</TableHead><TableHead className="text-right">Jumlah</TableHead></TableRow></TableHeader><TableBody>{filteredData.expense.map(e => <TableRow key={e.id}><TableCell>{format(new Date(e.date), "d MMM yyyy")}</TableCell><TableCell>{e.description}</TableCell><TableCell className="text-right">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(e.amount)}</TableCell></TableRow>)}</TableBody></Table></CardContent></Card>
       </div>
 

@@ -116,8 +116,8 @@ export const StockConsumptionReport = () => {
         transactions: []
       }
 
-      // For stock type products, consumption reduces stock (OUT movement)
-      // For Beli type products, consumption increases stock (IN movement) 
+      // For both Stock and Beli type products, consumption/usage is OUT movement
+      // Stock: reduces physical stock, Beli: tracks usage (both are OUT) 
       let totalIn = 0
       let totalOut = 0
 
@@ -145,7 +145,7 @@ export const StockConsumptionReport = () => {
           id: `${t.transactionId}-${Date.now()}`,
           productId: product.id,
           productName: product.name,
-          type: product.type === 'Stock' ? 'OUT' : 'IN',
+          type: 'OUT', // Both Stock and Beli products are consumed/used (OUT)
           reason: 'PRODUCTION',
           quantity: t.quantity,
           previousStock: 0,

@@ -52,11 +52,13 @@ export class MaterialStockService {
           if (newStock < 0) {
             throw new Error(`Insufficient stock for ${materialName}. Current: ${currentStock} ${unit}, Required: ${quantity} ${unit}`);
           }
-        } else if (materialType === 'Beli') {
-          // Beli type: Increase during production (purchased/acquired)
+        } else if (materialType === 'Beli' || materialType === 'Jasa') {
+          // Beli/Jasa type: Track usage/consumption (like service contracts, outsourced materials)
+          // For service contracts like Astragraphia, we track usage but don't decrease physical stock
+          // Stock represents cumulative usage counter, always increasing
           newStock = currentStock + quantity;
-          movementType = 'IN';
-          reason = 'PRODUCTION_ACQUISITION';
+          movementType = 'OUT'; // This represents usage/consumption
+          reason = 'PRODUCTION_CONSUMPTION';
         } else {
           throw new Error(`Unknown material type: ${materialType}`);
         }

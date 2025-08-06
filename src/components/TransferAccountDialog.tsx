@@ -25,7 +25,9 @@ import { ArrowRightLeft } from "lucide-react"
 const transferSchema = z.object({
   fromAccountId: z.string().min(1, "Akun asal harus dipilih."),
   toAccountId: z.string().min(1, "Akun tujuan harus dipilih."),
-  amount: z.coerce.number().min(1000, "Jumlah minimal Rp 1.000."),
+  amount: z.number({ required_error: "Jumlah transfer harus diisi." })
+    .min(1000, "Jumlah minimal Rp 1.000.")
+    .positive("Jumlah harus lebih dari 0."),
   description: z.string().min(1, "Keterangan harus diisi."),
 }).refine((data) => data.fromAccountId !== data.toAccountId, {
   message: "Akun asal dan tujuan tidak boleh sama.",
@@ -51,7 +53,7 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
     defaultValues: {
       fromAccountId: "",
       toAccountId: "",
-      amount: 0,
+      amount: undefined,
       description: "",
     }
   })
@@ -64,6 +66,7 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
   const toAccount = accounts?.find(acc => acc.id === toAccountId)
 
   const onSubmit = async (data: TransferFormData) => {
+    console.log('Form data received:', data)
     if (!user) {
       toast({
         variant: "destructive",
@@ -250,10 +253,8 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
             <Input
               id="amount"
               type="number"
-              step="1000"
-              min="1000"
-              {...register("amount")}
-              placeholder="Masukkan jumlah transfer..."
+              {...register("amount", { valueAsNumber: true })}
+              placeholder="Masukkan jumlah transfer (min. Rp 1.000)"
             />
             {errors.amount && (
               <p className="text-sm text-destructive">{errors.amount.message}</p>

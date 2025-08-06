@@ -1,17 +1,24 @@
 "use client"
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Badge } from './ui/badge'
 import { Product } from '@/types/product'
 import { Material } from '@/types/material'
-import { PlusCircle, Trash2 } from 'lucide-react'
+import { PlusCircle, Trash2, ChevronDown, ChevronUp, Clock, Package, ArrowUpDown, ShoppingBag, Search, X } from 'lucide-react'
 import { Textarea } from './ui/textarea'
 import { useToast } from './ui/use-toast'
 import { useProducts } from '@/hooks/useProducts'
+import { useStockMovements } from '@/hooks/useStockMovements'
 import { Skeleton } from './ui/skeleton'
+import { Link } from 'react-router-dom'
+import { format } from 'date-fns'
+import { id } from 'date-fns/locale/id'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +31,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useAuth } from '@/hooks/useAuth'
+import { useNavigate } from 'react-router-dom'
 
 interface ProductManagementProps {
   materials?: Material[]
@@ -31,12 +39,10 @@ interface ProductManagementProps {
 
 const EMPTY_FORM_DATA: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
   name: '',
-  category: 'indoor',
+  category: '',
   type: 'Stock',
   basePrice: 0,
   unit: 'pcs',
-  currentStock: 0,
-  minStock: 0,
   minOrder: 1,
   description: '',
   specifications: [],
@@ -46,14 +52,45 @@ const EMPTY_FORM_DATA: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
 export const ProductManagement = ({ materials = [] }: ProductManagementProps) => {
   const { toast } = useToast()
   const { products, isLoading, upsertProduct, deleteProduct } = useProducts()
+  const { movements, isLoading: isMovementsLoading } = useStockMovements()
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [formData, setFormData] = useState(EMPTY_FORM_DATA)
+  const [isProductListOpen, setIsProductListOpen] = useState(true)
+  const [isMovementsOpen, setIsMovementsOpen] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState<string>("")
   const { user } = useAuth()
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [isMaterialDetailsOpen, setMaterialDetailsOpen] = useState(false);
+  const navigate = useNavigate()
 
   const canManageProducts = user && ['admin', 'owner', 'supervisor', 'cashier', 'designer'].includes(user.role)
   const canDeleteProducts = user && ['admin', 'owner'].includes(user.role)
   const canEditAllProducts = user && ['admin', 'owner', 'supervisor', 'cashier'].includes(user.role)
   const isDesigner = user?.role === 'designer'
+
+  // Get unique categories from existing products for autocomplete
+  const existingCategories = useMemo(() => {
+    if (!products) return []
+    const categories = [...new Set(products.map(p => p.category).filter(cat => cat && cat.trim() !== ''))]
+    return categories.sort()
+  }, [products])
+
+  // Filter products based on search query and filters
+  const filteredProducts = products?.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         product.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCategory = !categoryFilter || (product.category && product.category === categoryFilter)
+    
+    return matchesSearch && matchesCategory
+  }) || []
+
+  const hasActiveFilters = searchQuery || categoryFilter
+
+  const clearAllFilters = () => {
+    setSearchQuery("")
+    setCategoryFilter("")
+  }
 
   const handleEditClick = (product: Product) => {
     setEditingProduct(product)
@@ -63,8 +100,6 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
       type: product.type || 'Stock',
       basePrice: product.basePrice,
       unit: product.unit || 'pcs',
-      currentStock: product.currentStock || 0,
-      minStock: product.minStock || 0,
       minOrder: product.minOrder,
       description: product.description || '',
       specifications: product.specifications || [],
@@ -97,6 +132,36 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
   const addSpec = () => setFormData({ ...formData, specifications: [...formData.specifications, { key: '', value: '' }] })
   const removeSpec = (index: number) => setFormData({ ...formData, specifications: formData.specifications.filter((_, i) => i !== index) })
 
+  // Helper functions for stock movements display
+  const getMovementTypeColor = (type: string) => {
+    switch (type) {
+      case 'OUT': return 'bg-red-100 text-red-800'
+      case 'IN': return 'bg-green-100 text-green-800'
+      case 'ADJUSTMENT': return 'bg-blue-100 text-blue-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getMovementTypeLabel = (type: string) => {
+    switch (type) {
+      case 'OUT': return 'Keluar'
+      case 'IN': return 'Masuk'
+      case 'ADJUSTMENT': return 'Penyesuaian'
+      default: return type
+    }
+  }
+
+  const getReasonLabel = (reason: string) => {
+    switch (reason) {
+      case 'SALES': return 'Penjualan'
+      case 'PRODUCTION': return 'Produksi'
+      case 'PURCHASE': return 'Pembelian'
+      case 'ADJUSTMENT': return 'Penyesuaian'
+      case 'RETURN': return 'Pengembalian'
+      default: return reason
+    }
+  }
+
   const handleBomChange = (index: number, field: 'materialId' | 'quantity' | 'notes', value: string | number) => {
     const newBom = formData.materials.map((item, i) => i === index ? { ...item, [field]: value } : item)
     setFormData({ ...formData, materials: newBom })
@@ -108,12 +173,12 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validation: BOM required for Stock type products if user is designer
-    if (isDesigner && formData.type === 'Stock' && (!formData.materials || formData.materials.length === 0)) {
+    // Validation: BOM required if user is designer and materials are expected
+    if (isDesigner && (!formData.materials || formData.materials.length === 0)) {
       toast({ 
         variant: "destructive", 
         title: "BOM Wajib!", 
-        description: "Produk jenis 'Stock' wajib memiliki Bill of Materials (BOM). Silakan tambahkan minimal 1 bahan." 
+        description: "Produk wajib memiliki Bill of Materials (BOM). Silakan tambahkan minimal 1 bahan." 
       })
       return
     }
@@ -146,25 +211,69 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
     })
   }
 
+  const openMaterialDetails = (materialId: string) => {
+    const material = materials.find((m) => m.id === materialId);
+    if (material) {
+      setSelectedMaterial(material);
+      setMaterialDetailsOpen(true);
+    }
+  };
+
+  const closeMaterialDetails = () => {
+    setSelectedMaterial(null);
+    setMaterialDetailsOpen(false);
+  };
+
+  const handleRowClick = (product: Product) => {
+    if (isDesigner) {
+      // Navigate to product detail view
+      navigate(`/products/${product.id}`)
+    } else {
+      handleEditClick(product)
+    }
+  }
+
   return (
     <div className="space-y-8">
       {canManageProducts && (
         <form onSubmit={handleSubmit} className="space-y-6 p-6 border rounded-lg">
           <h2 className="text-xl font-bold">{editingProduct ? `Edit Produk: ${editingProduct.name}` : 'Tambah Produk Baru'}</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2"><Label htmlFor="name">Nama Produk</Label><Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required /></div>
-            <div className="space-y-2"><Label htmlFor="category">Kategori</Label><Select value={formData.category} onValueChange={(v: 'indoor' | 'outdoor') => setFormData({...formData, category: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="indoor">Indoor</SelectItem><SelectItem value="outdoor">Outdoor</SelectItem></SelectContent></Select></div>
-            <div className="space-y-2"><Label htmlFor="type">Jenis Barang</Label><Select value={formData.type} onValueChange={(v: 'Stock' | 'Beli') => setFormData({...formData, type: v})}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Stock">Stock (Produksi menurunkan stock)</SelectItem><SelectItem value="Beli">Beli (Produksi menambah stock)</SelectItem></SelectContent></Select></div>
-            <div className="space-y-2"><Label htmlFor="basePrice">Harga Dasar (Rp)</Label><Input id="basePrice" type="number" value={formData.basePrice} onChange={(e) => setFormData({...formData, basePrice: Number(e.target.value)})} required /></div>
-            <div className="space-y-2"><Label htmlFor="unit">Satuan</Label><Input id="unit" value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} placeholder="pcs, lembar, m²" required /></div>
-            <div className="space-y-2"><Label htmlFor="minOrder">Min. Order</Label><Input id="minOrder" type="number" value={formData.minOrder} onChange={(e) => setFormData({...formData, minOrder: Number(e.target.value)})} required /></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="space-y-2 lg:col-span-2">
+              <Label htmlFor="name">Nama Produk</Label>
+              <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="category">Kategori</Label>
+              <Input 
+                id="category" 
+                value={formData.category} 
+                onChange={(e) => setFormData({...formData, category: e.target.value})}
+                placeholder="Masukkan kategori..."
+                list="categories-list"
+                required 
+              />
+              <datalist id="categories-list">
+                {existingCategories.map(category => (
+                  <option key={category} value={category} />
+                ))}
+              </datalist>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="basePrice">Harga Dasar (Rp)</Label>
+              <Input id="basePrice" type="number" value={formData.basePrice} onChange={(e) => setFormData({...formData, basePrice: Number(e.target.value)})} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unit">Satuan</Label>
+              <Input id="unit" value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} placeholder="pcs, lembar, m²" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="minOrder">Min. Order</Label>
+              <Input id="minOrder" type="number" value={formData.minOrder} onChange={(e) => setFormData({...formData, minOrder: Number(e.target.value)})} required />
+            </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-            <div className="space-y-2"><Label htmlFor="currentStock">Stock Saat Ini</Label><Input id="currentStock" type="number" value={formData.currentStock} onChange={(e) => setFormData({...formData, currentStock: Number(e.target.value)})} min="0" /></div>
-            <div className="space-y-2"><Label htmlFor="minStock">Stock Minimum</Label><Input id="minStock" type="number" value={formData.minStock} onChange={(e) => setFormData({...formData, minStock: Number(e.target.value)})} min="0" /></div>
-          </div>
           <div className="space-y-2"><Label htmlFor="description">Deskripsi</Label><Textarea id="description" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} /></div>
 
           <div className="space-y-4 pt-4 border-t">
@@ -182,8 +291,8 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
           <div className="space-y-4 pt-4 border-t">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Bill of Materials (BOM)</h3>
-              {isDesigner && formData.type === 'Stock' && (
-                <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Wajib diisi untuk produk Stock</span>
+              {isDesigner && (
+                <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">Wajib diisi</span>
               )}
             </div>
             <div className="border rounded-lg overflow-hidden">
@@ -193,14 +302,17 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
                   {formData.materials.map((bom, index) => (
                     <TableRow key={index}>
                       <TableCell>
-                        <Select value={bom.materialId} onValueChange={(v) => handleBomChange(index, 'materialId', v)}>
+                        <Select value={bom.materialId || ""} onValueChange={(v) => handleBomChange(index, 'materialId', v)}>
                           <SelectTrigger><SelectValue placeholder="Pilih Bahan" /></SelectTrigger>
                           <SelectContent>{materials.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>)}</SelectContent>
                         </Select>
                       </TableCell>
                       <TableCell><Input type="number" step="any" placeholder="Jumlah" value={bom.quantity} onChange={(e) => handleBomChange(index, 'quantity', Number(e.target.value))} /></TableCell>
                       <TableCell><Input placeholder="Opsional" value={bom.notes || ''} onChange={(e) => handleBomChange(index, 'notes', e.target.value)} /></TableCell>
-                      <TableCell><Button type="button" variant="ghost" size="icon" onClick={() => removeBomItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                      <TableCell>
+                        <Button type="button" variant="ghost" size="icon" onClick={() => removeBomItem(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => openMaterialDetails(bom.materialId)}>Lihat Detail</Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -218,87 +330,312 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
         </form>
       )}
 
-      <div className="mt-8">
-        <h2 className="text-xl font-bold mb-4">Daftar Produk</h2>
-        {isDesigner && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Info Designer:</strong> Anda dapat membuat produk baru dan melihat semua produk. 
-              Untuk produk jenis "Stock", wajib mengisi Bill of Materials (BOM).
-            </p>
-          </div>
-        )}
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader><TableRow><TableHead>Nama</TableHead><TableHead>Kategori</TableHead><TableHead>Jenis</TableHead><TableHead>Harga Dasar</TableHead><TableHead>Stock</TableHead><TableHead>Satuan</TableHead>{canManageProducts && <TableHead>Aksi</TableHead>}</TableRow></TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}><TableCell colSpan={canManageProducts ? 7 : 6}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
-                ))
-              ) : products?.map((product) => (
-                <TableRow key={product.id}>
-                  <TableCell>{product.name}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${product.category === 'indoor' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                      {product.category}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      product.type === 'Stock' ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'
-                    }`}>
-                      {product.type || 'Stock'}
-                    </span>
-                  </TableCell>
-                  <TableCell>Rp{product.basePrice.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <span className={`font-medium ${
-                      (product.currentStock || 0) <= (product.minStock || 0) ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {product.currentStock || 0}
-                      {(product.currentStock || 0) <= (product.minStock || 0) && (
-                        <span className="text-xs text-red-500 ml-1">(Min: {product.minStock || 0})</span>
-                      )}
-                    </span>
-                  </TableCell>
-                  <TableCell>{product.unit}</TableCell>
-                  {canManageProducts && (
-                    <TableCell>
-                      {canEditAllProducts && (
-                        <Button variant="ghost" size="sm" onClick={() => handleEditClick(product)}>Edit</Button>
-                      )}
-                      {isDesigner && (
-                        <Button variant="ghost" size="sm" disabled className="text-gray-400">View Only</Button>
-                      )}
-                      {canDeleteProducts && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-red-500">Hapus</Button>
-                          </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Anda yakin ingin menghapus produk ini?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Tindakan ini tidak dapat dibatalkan. Produk "{product.name}" akan dihapus secara permanen.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Batal</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteClick(product.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                              Ya, Hapus
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </TableCell>
+      <Collapsible open={isProductListOpen} onOpenChange={setIsProductListOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShoppingBag className="h-5 w-5" />
+                    Daftar Produk
+                  </CardTitle>
+                  <CardDescription>
+                    {canManageProducts 
+                      ? 'Kelola semua produk dan item yang tersedia.'
+                      : 'Lihat informasi produk (hanya baca).'}
+                  </CardDescription>
+                </div>
+                {isProductListOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              {isDesigner && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Info Designer:</strong> Anda dapat membuat produk baru dan melihat semua produk. 
+                    Untuk produk jenis "Stock", wajib mengisi Bill of Materials (BOM).
+                  </p>
+                </div>
+              )}
+              
+              {/* Search and Filter Controls */}
+              <div className="mb-6 space-y-4">
+                <div className="flex gap-4 items-center flex-wrap">
+                  <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari produk berdasarkan nama..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={categoryFilter || "all"} onValueChange={(value) => setCategoryFilter(value === "all" ? "" : value)}>
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Semua Kategori" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Kategori</SelectItem>
+                      {existingCategories.map(category => (
+                        <SelectItem key={category} value={category}>{category}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {hasActiveFilters && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        Menampilkan {filteredProducts.length} dari {products?.length || 0} produk
+                      </span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={clearAllFilters}
+                        className="h-8 px-2"
+                      >
+                        <X className="h-4 w-4" />
+                        Clear
+                      </Button>
+                    </div>
                   )}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                </div>
+              </div>
+              
+              <Table>
+                <TableHeader><TableRow><TableHead>Nama</TableHead><TableHead>Kategori</TableHead><TableHead>Harga Dasar</TableHead><TableHead>Satuan</TableHead>{canManageProducts && <TableHead>Aksi</TableHead>}</TableRow></TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <TableRow key={i}><TableCell colSpan={canManageProducts ? 5 : 4}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+                    ))
+                  ) : filteredProducts?.map((product) => (
+                    <TableRow key={product.id} onClick={() => handleRowClick(product)} className="cursor-pointer hover:bg-muted">
+                      <TableCell>{product.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                          {product.category}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>Rp{product.basePrice.toLocaleString()}</TableCell>
+                      <TableCell>{product.unit}</TableCell>
+                      {canManageProducts && (
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {canEditAllProducts && (
+                              <Button variant="outline" size="sm" onClick={() => handleEditClick(product)}>Edit</Button>
+                            )}
+                            {isDesigner && (
+                              <Button variant="outline" size="sm" disabled className="text-gray-400">View Only</Button>
+                            )}
+                            {canDeleteProducts && (
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="destructive" size="sm">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Anda yakin ingin menghapus produk ini?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Tindakan ini tidak dapat dibatalkan. Produk "{product.name}" akan dihapus secara permanen.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteClick(product.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                    Ya, Hapus
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                              </AlertDialog>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      <Collapsible open={isMovementsOpen} onOpenChange={setIsMovementsOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ArrowUpDown className="h-5 w-5" />
+                    Pergerakan Stock Produk
+                  </CardTitle>
+                  <CardDescription>
+                    Riwayat pergerakan stock produk dari transaksi dan aktivitas lainnya
+                  </CardDescription>
+                </div>
+                {isMovementsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Produk</TableHead>
+                    <TableHead>Jenis</TableHead>
+                    <TableHead>Alasan</TableHead>
+                    <TableHead className="text-right">Jumlah</TableHead>
+                    <TableHead>Transaksi</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Keterangan</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isMovementsLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Clock className="h-4 w-4 animate-spin" />
+                          <span>Memuat data pergerakan...</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : !movements || movements.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <div className="flex flex-col items-center space-y-2">
+                          <ArrowUpDown className="h-12 w-12 opacity-50" />
+                          <p>Belum ada pergerakan produk</p>
+                          <p className="text-sm">
+                            Pergerakan akan tercatat saat transaksi dibuat atau stock diupdate
+                          </p>
+                          <p className="text-xs text-orange-600 mt-2">
+                            💡 Jika tabel kosong, jalankan file SQL: create_required_tables_simple.sql
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    movements.slice(0, 50).map((movement) => (
+                      <TableRow key={movement.id}>
+                        <TableCell className="font-mono text-sm">
+                          {format(new Date(movement.createdAt), 'dd/MM/yyyy HH:mm', { locale: id })}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {movement.productName}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getMovementTypeColor(movement.type)}>
+                            {getMovementTypeLabel(movement.type)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {getReasonLabel(movement.reason)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className={`text-right font-semibold ${
+                          movement.type === 'OUT' ? 'text-red-600' :
+                          movement.type === 'IN' ? 'text-green-600' : 'text-blue-600'
+                        }`}>
+                          {movement.type === 'OUT' ? '-' : '+'}
+                          {movement.quantity.toLocaleString('id-ID')}
+                        </TableCell>
+                        <TableCell>
+                          {movement.referenceId ? (
+                            <Link 
+                              to={`/transactions/${movement.referenceId}`}
+                              className="text-blue-600 hover:text-blue-800 hover:underline font-mono text-sm"
+                            >
+                              {movement.referenceId.slice(0, 8)}...
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {movement.userName}
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[200px] truncate">
+                          {movement.notes || '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              {movements && movements.length > 50 && (
+                <div className="mt-4 text-center text-sm text-muted-foreground">
+                  Menampilkan 50 pergerakan terbaru dari {movements.length} total
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {isMaterialDetailsOpen && selectedMaterial && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-1/2">
+            <h2 className="text-xl font-bold mb-4">Detail Bahan: {selectedMaterial.name}</h2>
+            <p><strong>Jenis:</strong> {selectedMaterial.type}</p>
+            <p><strong>Satuan:</strong> {selectedMaterial.unit}</p>
+            <p><strong>Deskripsi:</strong> {selectedMaterial.description || 'Tidak ada deskripsi'}</p>
+            <div className="mt-4 flex justify-end">
+              <Button variant="outline" onClick={closeMaterialDetails}>Tutup</Button>
+            </div>
+          </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+// Placeholder for MaterialDetails component
+const MaterialDetails = () => {
+  return (
+    <div>
+      <h2 className="text-xl font-bold mb-4">Detail Material</h2>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="materialName">Nama Material</Label>
+          <Input id="materialName" disabled />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="materialType">Jenis Material</Label>
+          <Input id="materialType" disabled />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="materialUnit">Satuan</Label>
+          <Input id="materialUnit" disabled />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="materialDescription">Deskripsi</Label>
+          <Textarea id="materialDescription" disabled />
+        </div>
+      </div>
+      <div className="mt-4">
+        <h3 className="font-semibold">Riwayat Penggunaan Material</h3>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Tanggal</TableHead>
+              <TableHead>Produk</TableHead>
+              <TableHead>Kuantitas</TableHead>
+              <TableHead>Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {/* Map through material's related products or transactions */}
+          </TableBody>
+        </Table>
       </div>
     </div>
   )

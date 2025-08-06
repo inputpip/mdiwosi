@@ -9,7 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { MoreHorizontal, PlusCircle, FileDown, Trash2 } from "lucide-react"
+import { MoreHorizontal, PlusCircle, FileDown, Trash2, Search, X } from "lucide-react"
 import * as XLSX from "xlsx"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -105,8 +105,24 @@ export function TransactionTable() {
   const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null);
   const [isCancelWarningOpen, setIsCancelWarningOpen] = React.useState(false);
   const [cancelTransactionData, setCancelTransactionData] = React.useState<{id: string, status: TransactionStatus} | null>(null);
+  
+  // State preservation for better UX when updating status
+  const [savedScrollPosition, setSavedScrollPosition] = React.useState(0);
+  const [savedTableState, setSavedTableState] = React.useState<{
+    pagination: any;
+    columnFilters: any;
+    sorting: any;
+  } | null>(null);
 
   const handleStatusChange = (transactionId: string, newStatus: TransactionStatus) => {
+    // Save current state before making changes
+    setSavedScrollPosition(window.pageYOffset);
+    setSavedTableState({
+      pagination: table.getState().pagination,
+      columnFilters: table.getState().columnFilters,
+      sorting: table.getState().sorting,
+    });
+
     // Check if trying to cancel a transaction that's already in production
     if (newStatus === 'Dibatalkan') {
       const transaction = transactions?.find(t => t.id === transactionId);
@@ -124,6 +140,17 @@ export function TransactionTable() {
           title: "Status Diperbarui",
           description: `Status untuk pesanan ${transactionId} diubah menjadi "${newStatus}".`,
         });
+        
+        // Restore table state after successful update
+        setTimeout(() => {
+          if (savedTableState) {
+            table.setPageIndex(savedTableState.pagination.pageIndex);
+            table.setColumnFilters(savedTableState.columnFilters);
+            table.setSorting(savedTableState.sorting);
+          }
+          window.scrollTo(0, savedScrollPosition);
+        }, 100);
+        
         if (newStatus === 'Proses Produksi') {
           deductMaterials.mutate(transactionId, {
             onSuccess: () => {
@@ -155,6 +182,17 @@ export function TransactionTable() {
             title: "Pesanan Dibatalkan",
             description: `Pesanan ${cancelTransactionData.id} telah dibatalkan meskipun sudah dalam proses produksi.`,
           });
+          
+          // Restore table state after successful update
+          setTimeout(() => {
+            if (savedTableState) {
+              table.setPageIndex(savedTableState.pagination.pageIndex);
+              table.setColumnFilters(savedTableState.columnFilters);
+              table.setSorting(savedTableState.sorting);
+            }
+            window.scrollTo(0, savedScrollPosition);
+          }, 100);
+          
           setIsCancelWarningOpen(false);
           setCancelTransactionData(null);
         },
@@ -207,6 +245,24 @@ export function TransactionTable() {
     {
       accessorKey: "cashierName",
       header: "Kasir",
+    },
+    {
+      id: "products",
+      header: "Produk",
+      cell: ({ row }) => {
+        const transaction = row.original;
+        const productNames = transaction.items.map(item => item.product.name).join(", ");
+        return (
+          <div className="max-w-[200px] truncate" title={productNames}>
+            {productNames}
+          </div>
+        );
+      },
+      filterFn: (row, id, value) => {
+        const transaction = row.original;
+        const productNames = transaction.items.map(item => item.product.name.toLowerCase()).join(" ");
+        return productNames.includes(value.toLowerCase());
+      },
     },
     {
       accessorKey: "total",
@@ -315,14 +371,46 @@ export function TransactionTable() {
   return (
     <div className="w-full">
       <div className="flex items-center justify-between py-4">
-        <Input
-          placeholder="Cari berdasarkan nama pelanggan..."
-          value={(table.getColumn("customerName")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("customerName")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
+        <div className="flex gap-4 items-center">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Cari berdasarkan nama pelanggan..."
+              value={(table.getColumn("customerName")?.getFilterValue() as string) ?? ""}
+              onChange={(event) =>
+                table.getColumn("customerName")?.setFilterValue(event.target.value)
+              }
+              className="pl-10"
+            />
+          </div>
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Cari berdasarkan produk..."
+              value={(table.getColumn("products")?.getFilterValue() as string) ?? ""}
+              onChange={(event) =>
+                table.getColumn("products")?.setFilterValue(event.target.value)
+              }
+              className="pl-10"
+            />
+          </div>
+          {(table.getState().columnFilters.length > 0) && (
+            <div className="flex items-center gap-2">
+              <div className="text-sm text-muted-foreground">
+                Menampilkan {table.getFilteredRowModel().rows.length} dari {table.getCoreRowModel().rows.length} transaksi
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => table.resetColumnFilters()}
+                className="h-8 px-2"
+              >
+                <X className="h-4 w-4" />
+                Clear
+              </Button>
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleExportExcel}><FileDown className="mr-2 h-4 w-4" /> Ekspor Excel</Button>
           <Button variant="outline" onClick={handleExportPdf}><FileDown className="mr-2 h-4 w-4" /> Ekspor PDF</Button>

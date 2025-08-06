@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,14 +11,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Material } from '@/types/material'
 import { useMaterials } from '@/hooks/useMaterials'
+import { useMaterialMovements } from '@/hooks/useMaterialMovements'
 import { useAuth } from '@/hooks/useAuth'
-import { AddStockDialog } from './AddStockDialog'
 import { RequestPoDialog } from './RequestPoDialog'
 import { Badge } from './ui/badge'
 import { useToast } from './ui/use-toast'
-import { Trash2 } from 'lucide-react'
+import { Trash2, ChevronDown, ChevronUp, Clock, Package, ArrowUpDown, Search, X } from 'lucide-react'
+import { format } from 'date-fns'
+import { id } from 'date-fns/locale/id'
 
 const materialSchema = z.object({
   name: z.string().min(3, { message: "Nama bahan minimal 3 karakter." }),
@@ -43,25 +47,42 @@ const EMPTY_FORM_DATA: MaterialFormData = {
 
 export const MaterialManagement = () => {
   const { materials, isLoading, upsertMaterial, deleteMaterial } = useMaterials()
+  const { stockMovements, isLoading: isMovementsLoading } = useMaterialMovements()
   const { user } = useAuth()
   const { toast } = useToast()
 
   // Permission checks
   const canManageMaterials = user && ['admin', 'owner', 'supervisor'].includes(user.role)
-  const canManageStock = user && ['admin', 'owner'].includes(user.role)
-  const [isAddStockOpen, setIsAddStockOpen] = useState(false)
   const [isRequestPoOpen, setIsRequestPoOpen] = useState(false)
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null)
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null)
+  const [isMaterialListOpen, setIsMaterialListOpen] = useState(true)
+  const [isMovementsOpen, setIsMovementsOpen] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [typeFilter, setTypeFilter] = useState<string>("")
+  const [lowStockFilter, setLowStockFilter] = useState(false)
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<MaterialFormData>({
     resolver: zodResolver(materialSchema),
     defaultValues: EMPTY_FORM_DATA,
   })
 
-  const handleOpenAddStock = (material: Material) => {
-    setSelectedMaterial(material)
-    setIsAddStockOpen(true)
+  // Filter materials based on search query and filters
+  const filteredMaterials = materials?.filter(material => {
+    const matchesSearch = material.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         material.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesType = !typeFilter || material.type === typeFilter
+    const matchesLowStock = !lowStockFilter || material.stock <= material.minStock
+    
+    return matchesSearch && matchesType && matchesLowStock
+  }) || []
+
+  const hasActiveFilters = searchQuery || typeFilter || lowStockFilter
+
+  const clearAllFilters = () => {
+    setSearchQuery("")
+    setTypeFilter("")
+    setLowStockFilter(false)
   }
 
   const handleOpenRequestPo = (material: Material) => {
@@ -124,13 +145,36 @@ export const MaterialManagement = () => {
     })
   }
 
+  const getMovementTypeColor = (type: string) => {
+    switch (type) {
+      case 'OUT': return 'bg-red-100 text-red-800'
+      case 'IN': return 'bg-green-100 text-green-800'
+      case 'ADJUSTMENT': return 'bg-blue-100 text-blue-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getMovementTypeLabel = (type: string) => {
+    switch (type) {
+      case 'OUT': return 'Keluar'
+      case 'IN': return 'Masuk'
+      case 'ADJUSTMENT': return 'Penyesuaian'
+      default: return type
+    }
+  }
+
+  const getReasonLabel = (reason: string) => {
+    switch (reason) {
+      case 'PRODUCTION_CONSUMPTION': return 'Produksi'
+      case 'PURCHASE': return 'Pembelian'
+      case 'ADJUSTMENT': return 'Penyesuaian'
+      case 'PRODUCTION_ACQUISITION': return 'Akuisisi Produksi'
+      default: return reason
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <AddStockDialog 
-        open={isAddStockOpen}
-        onOpenChange={setIsAddStockOpen}
-        material={selectedMaterial}
-      />
       <RequestPoDialog
         open={isRequestPoOpen}
         onOpenChange={setIsRequestPoOpen}
@@ -212,81 +256,281 @@ export const MaterialManagement = () => {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Daftar Bahan & Stok</CardTitle>
-          <CardDescription>
-            {canManageMaterials 
-              ? 'Kelola semua bahan baku dan stok yang tersedia.'
-              : user?.role === 'designer' 
-                ? 'Lihat informasi bahan baku dan request Purchase Order (PO).'
-                : 'Lihat informasi bahan baku dan stok (hanya baca).'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nama</TableHead>
-                <TableHead>Jenis</TableHead>
-                <TableHead>Stok Saat Ini</TableHead>
-                <TableHead>Stok Minimal</TableHead>
-                <TableHead>Harga/Satuan</TableHead>
-                <TableHead>Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center">Memuat data...</TableCell></TableRow>
-              ) : materials?.map((material) => (
-                <TableRow key={material.id}>
-                  <TableCell className="font-medium">{material.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={
-                      material.type === 'Stock' ? 'bg-purple-100 text-purple-800' :
-                      'bg-orange-100 text-orange-800'
-                    }>
-                      {material.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={material.stock < material.minStock ? "destructive" : "secondary"}>
-                      {material.stock} {material.unit}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{material.minStock} {material.unit}</TableCell>
-                  <TableCell>Rp{material.pricePerUnit.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      {canManageMaterials && (
-                        <Button variant="outline" size="sm" onClick={() => handleEditClick(material)}>Edit</Button>
-                      )}
-                      {canManageStock && (
-                        <Button variant="outline" size="sm" onClick={() => handleOpenAddStock(material)}>
-                          + Stok
-                        </Button>
-                      )}
-                      <Button variant="secondary" size="sm" onClick={() => handleOpenRequestPo(material)}>
-                        Request PO
+      <Collapsible open={isMaterialListOpen} onOpenChange={setIsMaterialListOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    Daftar Bahan & Stok
+                  </CardTitle>
+                  <CardDescription>
+                    {canManageMaterials 
+                      ? 'Kelola semua bahan baku dan stok yang tersedia.'
+                      : user?.role === 'designer' 
+                        ? 'Lihat informasi bahan baku dan request Purchase Order (PO).'
+                        : 'Lihat informasi bahan baku dan stok (hanya baca).'}
+                  </CardDescription>
+                </div>
+                {isMaterialListOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              
+              {/* Search and Filter Controls */}
+              <div className="mb-6 space-y-4">
+                <div className="flex gap-4 items-center flex-wrap">
+                  <div className="relative max-w-sm">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder="Cari bahan berdasarkan nama..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <Select value={typeFilter || "all"} onValueChange={(value) => setTypeFilter(value === "all" ? "" : value)}>
+                    <SelectTrigger className="w-[150px]">
+                      <SelectValue placeholder="Jenis" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Jenis</SelectItem>
+                      <SelectItem value="Stock">Stock</SelectItem>
+                      <SelectItem value="Beli">Beli</SelectItem>
+                      <SelectItem value="Jasa">Jasa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant={lowStockFilter ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setLowStockFilter(!lowStockFilter)}
+                  >
+                    Stok Rendah
+                  </Button>
+                  {hasActiveFilters && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">
+                        Menampilkan {filteredMaterials.length} dari {materials?.length || 0} bahan
+                      </span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={clearAllFilters}
+                        className="h-8 px-2"
+                      >
+                        <X className="h-4 w-4" />
+                        Clear
                       </Button>
-                      {user?.role === 'owner' && (
-                        <Button 
-                          variant="destructive" 
-                          size="sm" 
-                          onClick={() => handleDeleteClick(material)}
-                          disabled={deleteMaterial.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  )}
+                </div>
+              </div>
+              
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nama</TableHead>
+                    <TableHead>Jenis</TableHead>
+                    <TableHead>Stok Saat Ini</TableHead>
+                    <TableHead>Stok Minimal</TableHead>
+                    <TableHead>Harga/Satuan</TableHead>
+                    <TableHead>Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow><TableCell colSpan={6} className="text-center">Memuat data...</TableCell></TableRow>
+                  ) : filteredMaterials?.map((material) => (
+                    <TableRow key={material.id}>
+                      <TableCell className="font-medium">
+                        <Link 
+                          to={`/materials/${material.id}`} 
+                          className="text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                        >
+                          {material.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={
+                          material.type === 'Stock' ? 'bg-purple-100 text-purple-800' :
+                          'bg-orange-100 text-orange-800'
+                        }>
+                          {material.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {material.type === 'Stock' ? (
+                          <Badge variant={material.stock < material.minStock ? "destructive" : "secondary"}>
+                            {material.stock} {material.unit}
+                          </Badge>
+                        ) : (
+                          <div className="flex flex-col">
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 mb-1">
+                              Total Digunakan: {material.stock} {material.unit}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              (Kontrak/Jasa)
+                            </span>
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {material.type === 'Stock' ? (
+                          `${material.minStock} ${material.unit}`
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>Rp{material.pricePerUnit.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {canManageMaterials && (
+                            <Button variant="outline" size="sm" onClick={() => handleEditClick(material)}>Edit</Button>
+                          )}
+                          <Button variant="secondary" size="sm" onClick={() => handleOpenRequestPo(material)}>
+                            Request PO
+                          </Button>
+                          {user?.role === 'owner' && (
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              onClick={() => handleDeleteClick(material)}
+                              disabled={deleteMaterial.isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      <Collapsible open={isMovementsOpen} onOpenChange={setIsMovementsOpen}>
+        <Card>
+          <CollapsibleTrigger asChild>
+            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <ArrowUpDown className="h-5 w-5" />
+                    Pergerakan Penggunaan Bahan
+                  </CardTitle>
+                  <CardDescription>
+                    Riwayat semua pergerakan stok material dari transaksi dan aktivitas lainnya
+                  </CardDescription>
+                </div>
+                {isMovementsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tanggal</TableHead>
+                    <TableHead>Material</TableHead>
+                    <TableHead>Jenis</TableHead>
+                    <TableHead>Alasan</TableHead>
+                    <TableHead className="text-right">Jumlah</TableHead>
+                    <TableHead>Transaksi</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Keterangan</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isMovementsLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8">
+                        <div className="flex items-center justify-center space-x-2">
+                          <Clock className="h-4 w-4 animate-spin" />
+                          <span>Memuat data pergerakan...</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : !stockMovements || stockMovements.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                        <div className="flex flex-col items-center space-y-2">
+                          <ArrowUpDown className="h-12 w-12 opacity-50" />
+                          <p>Belum ada pergerakan material</p>
+                          <p className="text-sm">
+                            Pergerakan akan tercatat saat transaksi berubah status menjadi "Proses Produksi"
+                          </p>
+                          <p className="text-xs text-orange-600 mt-2">
+                            💡 Jika tabel kosong, jalankan file SQL: create_required_tables_simple.sql
+                          </p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    stockMovements.slice(0, 50).map((movement) => (
+                      <TableRow key={movement.id}>
+                        <TableCell className="font-mono text-sm">
+                          {format(new Date(movement.createdAt), 'dd/MM/yyyy HH:mm', { locale: id })}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {movement.materialName}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getMovementTypeColor(movement.type)}>
+                            {getMovementTypeLabel(movement.type)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {getReasonLabel(movement.reason)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className={`text-right font-semibold ${
+                          movement.type === 'OUT' ? 'text-red-600' :
+                          movement.type === 'IN' ? 'text-green-600' : 'text-blue-600'
+                        }`}>
+                          {movement.type === 'OUT' ? '-' : '+'}
+                          {movement.quantity.toLocaleString('id-ID')}
+                        </TableCell>
+                        <TableCell>
+                          {movement.referenceId ? (
+                            <Link 
+                              to={`/transactions/${movement.referenceId}`}
+                              className="text-blue-600 hover:text-blue-800 hover:underline font-mono text-sm"
+                            >
+                              {movement.referenceId.slice(0, 8)}...
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {movement.userName}
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[200px] truncate">
+                          {movement.notes || '-'}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+              {stockMovements && stockMovements.length > 50 && (
+                <div className="mt-4 text-center text-sm text-muted-foreground">
+                  Menampilkan 50 pergerakan terbaru dari {stockMovements.length} total
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
     </div>
   )
 }

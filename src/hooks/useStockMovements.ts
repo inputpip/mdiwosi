@@ -50,6 +50,11 @@ export const useStockMovements = () => {
 
       if (error) {
         console.error('Error fetching stock movements:', error);
+        // If table doesn't exist, return empty array instead of throwing
+        if (error.code === '42P01') {
+          console.warn('stock_movements table does not exist, returning empty array');
+          return [];
+        }
         throw new Error(error.message);
       }
       return data ? data.map(fromDbToApp) : [];

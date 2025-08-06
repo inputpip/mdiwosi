@@ -46,11 +46,33 @@ export const useMaterials = () => {
 
   const addStock = useMutation({
     mutationFn: async ({ materialId, quantity }: { materialId: string, quantity: number }): Promise<Material> => {
-      const { error } = await supabase.rpc('add_material_stock', {
-        material_id: materialId,
-        quantity_to_add: quantity
-      });
-      if (error) throw new Error(error.message);
+      // Get material data to determine how to handle the operation
+      const { data: material, error: materialError } = await supabase
+        .from('materials')
+        .select('type, current_stock')
+        .eq('id', materialId)
+        .single();
+      
+      if (materialError) throw new Error(materialError.message);
+      
+      // For 'Stock' type: add to stock (purchase received)
+      // For 'Beli'/'Jasa' type: track usage/consumption (increase usage counter)
+      if (material.type === 'Stock') {
+        // Regular stock addition for Stock type materials
+        const { error } = await supabase.rpc('add_material_stock', {
+          material_id: materialId,
+          quantity_to_add: quantity
+        });
+        if (error) throw new Error(error.message);
+      } else {
+        // For Beli/Jasa: track usage by adding to stock field (used as usage counter)
+        const { error } = await supabase.rpc('add_material_stock', {
+          material_id: materialId,
+          quantity_to_add: quantity
+        });
+        if (error) throw new Error(error.message);
+      }
+      
       return {} as Material;
     },
     onSuccess: () => {

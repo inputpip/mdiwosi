@@ -19,6 +19,7 @@ const NewQuotationPage = lazy(() => import("@/pages/NewQuotationPage"));
 const QuotationDetailPage = lazy(() => import("@/pages/QuotationDetailPage"));
 const ProductPage = lazy(() => import("@/pages/ProductPage"));
 const MaterialPage = lazy(() => import("@/pages/MaterialPage"));
+const MaterialDetailPage = lazy(() => import("@/pages/MaterialDetailPage"));
 const CustomerPage = lazy(() => import("@/pages/CustomerPage"));
 const CustomerDetailPage = lazy(() => import("@/pages/CustomerDetailPage"));
 const EmployeePage = lazy(() => import("@/pages/EmployeePage"));
@@ -38,6 +39,9 @@ const AttendanceReportPage = lazy(() => import("@/pages/AttendanceReportPage"));
 const StockReportPage = lazy(() => import("@/pages/StockReportPage"));
 const TransactionItemsReportPage = lazy(() => import("@/pages/TransactionItemsReportPage"));
 const RolePermissionPage = lazy(() => import("@/pages/RolePermissionPage"));
+const ProductAnalyticsDebugPage = lazy(() => import("@/pages/ProductAnalyticsDebugPage"));
+const MaterialMovementReportPage = lazy(() => import("@/pages/MaterialMovementReportPage"));
+const ServiceMaterialReportPage = lazy(() => import("@/pages/ServiceMaterialReportPage"));
 
 function App() {
   // Handle chunk loading errors
@@ -74,6 +78,7 @@ function App() {
                   <Route path="/quotations/:id" element={<QuotationDetailPage />} />
                   <Route path="/products" element={<ProductPage />} />
                   <Route path="/materials" element={<MaterialPage />} />
+                  <Route path="/materials/:materialId" element={<MaterialDetailPage />} />
                   <Route path="/customers" element={<CustomerPage />} />
                   <Route path="/customers/:id" element={<CustomerDetailPage />} />
                   <Route path="/employees" element={<EmployeePage />} />
@@ -91,6 +96,9 @@ function App() {
                   <Route path="/stock-report" element={<StockReportPage />} />
                   <Route path="/transaction-items-report" element={<TransactionItemsReportPage />} />
                   <Route path="/role-permissions" element={<RolePermissionPage />} />
+                  <Route path="/debug/product-analytics" element={<ProductAnalyticsDebugPage />} />
+                  <Route path="/material-movements" element={<MaterialMovementReportPage />} />
+                  <Route path="/service-material-report" element={<ServiceMaterialReportPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
               )}

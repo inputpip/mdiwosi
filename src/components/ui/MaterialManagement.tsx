@@ -285,12 +285,6 @@ export const MaterialManagement = () => {
                       {canEditMaterials() && (
                         <Button variant="outline" size="sm" onClick={() => handleEditClick(material)}>Edit</Button>
                       )}
-                      {/* Add stock button requires edit permission */}
-                      {canEditMaterials() && (
-                        <Button variant="outline" size="sm" onClick={() => handleOpenAddStock(material)}>
-                          + Stok
-                        </Button>
-                      )}
                       {/* Request PO is allowed for all authenticated users */}
                       <Button variant="secondary" size="sm" onClick={() => handleOpenRequestPo(material)}>
                         Request PO
