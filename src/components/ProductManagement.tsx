@@ -1,5 +1,5 @@
 "use client"
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,7 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Badge } from './ui/badge'
 import { Product } from '@/types/product'
 import { Material } from '@/types/material'
-import { PlusCircle, Trash2, ChevronDown, ChevronUp, Clock, Package, ArrowUpDown, ShoppingBag, Search, X } from 'lucide-react'
+import { PlusCircle, Trash2, ChevronDown, ChevronUp, Clock, ArrowUpDown, ShoppingBag, Search, X } from 'lucide-react'
 import { Textarea } from './ui/textarea'
 import { useToast } from './ui/use-toast'
 import { useProducts } from '@/hooks/useProducts'
@@ -39,10 +39,12 @@ interface ProductManagementProps {
 
 const EMPTY_FORM_DATA: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
   name: '',
-  category: '',
+  category: 'indoor',
   type: 'Stock',
   basePrice: 0,
   unit: 'pcs',
+  currentStock: 0,
+  minStock: 1,
   minOrder: 1,
   description: '',
   specifications: [],
@@ -58,7 +60,7 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
   const [isProductListOpen, setIsProductListOpen] = useState(true)
   const [isMovementsOpen, setIsMovementsOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
-  const [categoryFilter, setCategoryFilter] = useState<string>("")
+  const [categoryFilter, setCategoryFilter] = useState<'indoor' | 'outdoor' | ''>('')
   const { user } = useAuth()
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [isMaterialDetailsOpen, setMaterialDetailsOpen] = useState(false);
@@ -69,18 +71,12 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
   const canEditAllProducts = user && ['admin', 'owner', 'supervisor', 'cashier'].includes(user.role)
   const isDesigner = user?.role === 'designer'
 
-  // Get unique categories from existing products for autocomplete
-  const existingCategories = useMemo(() => {
-    if (!products) return []
-    const categories = [...new Set(products.map(p => p.category).filter(cat => cat && cat.trim() !== ''))]
-    return categories.sort()
-  }, [products])
 
   // Filter products based on search query and filters
   const filteredProducts = products?.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.description?.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesCategory = !categoryFilter || (product.category && product.category === categoryFilter)
+    const matchesCategory = !categoryFilter || product.category === categoryFilter
     
     return matchesSearch && matchesCategory
   }) || []
@@ -100,6 +96,8 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
       type: product.type || 'Stock',
       basePrice: product.basePrice,
       unit: product.unit || 'pcs',
+      currentStock: product.currentStock || 0,
+      minStock: product.minStock || 1,
       minOrder: product.minOrder,
       description: product.description || '',
       specifications: product.specifications || [],
@@ -246,19 +244,15 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
             </div>
             <div className="space-y-2">
               <Label htmlFor="category">Kategori</Label>
-              <Input 
-                id="category" 
-                value={formData.category} 
-                onChange={(e) => setFormData({...formData, category: e.target.value})}
-                placeholder="Masukkan kategori..."
-                list="categories-list"
-                required 
-              />
-              <datalist id="categories-list">
-                {existingCategories.map(category => (
-                  <option key={category} value={category} />
-                ))}
-              </datalist>
+              <Select value={formData.category} onValueChange={(value) => setFormData({...formData, category: value as 'indoor' | 'outdoor'})}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kategori..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="indoor">Indoor</SelectItem>
+                  <SelectItem value="outdoor">Outdoor</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="basePrice">Harga Dasar (Rp)</Label>
@@ -267,6 +261,17 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
             <div className="space-y-2">
               <Label htmlFor="unit">Satuan</Label>
               <Input id="unit" value={formData.unit} onChange={(e) => setFormData({...formData, unit: e.target.value})} placeholder="pcs, lembar, m²" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="currentStock">Stock Saat Ini</Label>
+              <Input id="currentStock" type="number" value={formData.currentStock} onChange={(e) => setFormData({...formData, currentStock: Number(e.target.value)})} required />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="minStock">Stock Minimal</Label>
+              <Input id="minStock" type="number" value={formData.minStock} onChange={(e) => setFormData({...formData, minStock: Number(e.target.value)})} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="minOrder">Min. Order</Label>
@@ -373,15 +378,14 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
                       className="pl-10"
                     />
                   </div>
-                  <Select value={categoryFilter || "all"} onValueChange={(value) => setCategoryFilter(value === "all" ? "" : value)}>
+                  <Select value={categoryFilter || "all"} onValueChange={(value) => setCategoryFilter(value === "all" ? "" : value as 'indoor' | 'outdoor' | '')}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Semua Kategori" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua Kategori</SelectItem>
-                      {existingCategories.map(category => (
-                        <SelectItem key={category} value={category}>{category}</SelectItem>
-                      ))}
+                      <SelectItem value="indoor">Indoor</SelectItem>
+                      <SelectItem value="outdoor">Outdoor</SelectItem>
                     </SelectContent>
                   </Select>
                   {hasActiveFilters && (
@@ -404,21 +408,26 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
               </div>
               
               <Table>
-                <TableHeader><TableRow><TableHead>Nama</TableHead><TableHead>Kategori</TableHead><TableHead>Harga Dasar</TableHead><TableHead>Satuan</TableHead>{canManageProducts && <TableHead>Aksi</TableHead>}</TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Nama</TableHead><TableHead>Kategori</TableHead><TableHead>Harga Dasar</TableHead><TableHead>Stock</TableHead><TableHead>Satuan</TableHead>{canManageProducts && <TableHead>Aksi</TableHead>}</TableRow></TableHeader>
                 <TableBody>
                   {isLoading ? (
                     Array.from({ length: 3 }).map((_, i) => (
-                      <TableRow key={i}><TableCell colSpan={canManageProducts ? 5 : 4}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+                      <TableRow key={i}><TableCell colSpan={canManageProducts ? 6 : 5}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
                     ))
                   ) : filteredProducts?.map((product) => (
                     <TableRow key={product.id} onClick={() => handleRowClick(product)} className="cursor-pointer hover:bg-muted">
                       <TableCell>{product.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                          {product.category}
+                          {product.category === 'indoor' ? 'Indoor' : 'Outdoor'}
                         </Badge>
                       </TableCell>
                       <TableCell>Rp{product.basePrice.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Badge variant={product.currentStock < product.minStock ? "destructive" : "secondary"}>
+                          {product.currentStock}
+                        </Badge>
+                      </TableCell>
                       <TableCell>{product.unit}</TableCell>
                       {canManageProducts && (
                         <TableCell>
@@ -594,49 +603,6 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-// Placeholder for MaterialDetails component
-const MaterialDetails = () => {
-  return (
-    <div>
-      <h2 className="text-xl font-bold mb-4">Detail Material</h2>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="materialName">Nama Material</Label>
-          <Input id="materialName" disabled />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="materialType">Jenis Material</Label>
-          <Input id="materialType" disabled />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="materialUnit">Satuan</Label>
-          <Input id="materialUnit" disabled />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="materialDescription">Deskripsi</Label>
-          <Textarea id="materialDescription" disabled />
-        </div>
-      </div>
-      <div className="mt-4">
-        <h3 className="font-semibold">Riwayat Penggunaan Material</h3>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Tanggal</TableHead>
-              <TableHead>Produk</TableHead>
-              <TableHead>Kuantitas</TableHead>
-              <TableHead>Aksi</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {/* Map through material's related products or transactions */}
-          </TableBody>
-        </Table>
-      </div>
     </div>
   )
 }

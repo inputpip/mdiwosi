@@ -78,6 +78,7 @@ const menuItems = [
     // different top‑level sections which made the navigation cluttered.
     title: "Laporan",
     items: [
+      { href: "/daily-report", label: "Laporan Harian Kas", icon: FileText },
       { href: "/stock-report", label: "Laporan Stock", icon: BarChart3 },
       { href: "/material-movements", label: "Pergerakan Penggunaan Bahan", icon: Package2 },
       { href: "/transaction-items-report", label: "Laporan Item Keluar", icon: PackageOpen },
