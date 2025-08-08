@@ -11,6 +11,8 @@ import { useToast } from "./ui/use-toast"
 import { Transaction } from "@/types/transaction"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useAccounts } from "@/hooks/useAccounts"
+import { useCashHistory } from "@/hooks/useCashHistory"
+import { useAuth } from "@/hooks/useAuth"
 import { Wallet } from "lucide-react"
 
 const paymentSchema = z.object({
@@ -28,35 +30,58 @@ interface PayReceivableDialogProps {
 
 export function PayReceivableDialog({ open, onOpenChange, transaction }: PayReceivableDialogProps) {
   const { toast } = useToast()
+  const { user } = useAuth()
   const { payReceivable } = useTransactions()
   const { accounts, updateAccountBalance } = useAccounts()
+  const { addCashHistory } = useCashHistory()
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
   })
 
   const remainingAmount = transaction ? transaction.total - transaction.paidAmount : 0
 
-  const onSubmit = (data: PaymentFormData) => {
-    if (!transaction) return;
+  const onSubmit = async (data: PaymentFormData) => {
+    if (!transaction || !user) return;
     if (data.amount > remainingAmount) {
       toast({ variant: "destructive", title: "Gagal", description: "Jumlah pembayaran melebihi sisa tagihan." });
       return;
     }
 
-    // Mutasi untuk membayar piutang
-    payReceivable.mutate({ transactionId: transaction.id, amount: data.amount }, {
-      onSuccess: () => {
-        // Mutasi untuk menambah saldo akun
-        updateAccountBalance.mutate({ accountId: data.paymentAccountId, amount: data.amount });
-        
-        toast({ title: "Sukses", description: "Pembayaran piutang berhasil dicatat." })
-        reset()
-        onOpenChange(false)
-      },
-      onError: (error) => {
-        toast({ variant: "destructive", title: "Gagal", description: error.message })
-      }
-    })
+    try {
+      // 1. Bayar piutang (update transaction)
+      await payReceivable.mutateAsync({ transactionId: transaction.id, amount: data.amount });
+
+      // 2. Update saldo akun
+      await updateAccountBalance.mutateAsync({ accountId: data.paymentAccountId, amount: data.amount });
+
+      // 3. Catat ke cash history (FITUR BARU!)
+      const selectedAccount = accounts?.find(acc => acc.id === data.paymentAccountId);
+      await addCashHistory.mutateAsync({
+        accountId: data.paymentAccountId,
+        accountName: selectedAccount?.name || 'Unknown Account',
+        type: 'panjar_pelunasan',
+        amount: data.amount,
+        description: `Pembayaran piutang dari ${transaction.customerName} - Order: ${transaction.id}`,
+        referenceId: transaction.id,
+        referenceName: `PIUTANG-${transaction.id.slice(0, 8)}`,
+        userId: user.id,
+        userName: user.name || user.email || 'Unknown User'
+      });
+
+      toast({ 
+        title: "Sukses", 
+        description: `Pembayaran piutang sebesar ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(data.amount)} berhasil dicatat ke ${selectedAccount?.name}.` 
+      });
+      
+      reset();
+      onOpenChange(false);
+    } catch (error) {
+      toast({ 
+        variant: "destructive", 
+        title: "Gagal", 
+        description: error instanceof Error ? error.message : "Terjadi kesalahan saat memproses pembayaran"
+      });
+    }
   }
 
   return (

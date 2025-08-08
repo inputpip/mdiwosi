@@ -1,36 +1,26 @@
 "use client"
-import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { useToast } from "@/components/ui/use-toast"
 import { useAccounts } from "@/hooks/useAccounts"
-import { useAccountTransfers } from "@/hooks/useAccountTransfers"
+import { useToast } from "./ui/use-toast"
 import { useAuth } from "@/hooks/useAuth"
+import { useCashHistory } from "@/hooks/useCashHistory"
 import { ArrowRightLeft } from "lucide-react"
 
 const transferSchema = z.object({
-  fromAccountId: z.string().min(1, "Akun asal harus dipilih."),
-  toAccountId: z.string().min(1, "Akun tujuan harus dipilih."),
-  amount: z.number({ required_error: "Jumlah transfer harus diisi." })
-    .min(1000, "Jumlah minimal Rp 1.000.")
-    .positive("Jumlah harus lebih dari 0."),
-  description: z.string().min(1, "Keterangan harus diisi."),
+  fromAccountId: z.string().min(1, "Pilih akun asal"),
+  toAccountId: z.string().min(1, "Pilih akun tujuan"),
+  amount: z.coerce.number().min(1, "Jumlah harus lebih dari 0"),
+  description: z.string().min(3, "Keterangan minimal 3 karakter"),
 }).refine((data) => data.fromAccountId !== data.toAccountId, {
-  message: "Akun asal dan tujuan tidak boleh sama.",
+  message: "Akun asal dan tujuan tidak boleh sama",
   path: ["toAccountId"],
 })
 
@@ -42,163 +32,122 @@ interface TransferAccountDialogProps {
 }
 
 export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDialogProps) {
+  const { accounts, updateAccountBalance } = useAccounts()
   const { toast } = useToast()
   const { user } = useAuth()
-  const { accounts, updateAccountBalance } = useAccounts()
-  const { createTransfer } = useAccountTransfers()
-  const [isTransferring, setIsTransferring] = useState(false)
-
-  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<TransferFormData>({
+  const { addCashHistory } = useCashHistory()
+  
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<TransferFormData>({
     resolver: zodResolver(transferSchema),
     defaultValues: {
-      fromAccountId: "",
-      toAccountId: "",
-      amount: undefined,
-      description: "",
+      fromAccountId: '',
+      toAccountId: '',
+      amount: 0,
+      description: '',
     }
   })
 
-  const fromAccountId = watch("fromAccountId")
-  const toAccountId = watch("toAccountId")
-  const amount = watch("amount")
-
+  const fromAccountId = watch('fromAccountId')
+  const toAccountId = watch('toAccountId')
+  const amount = watch('amount')
+  
   const fromAccount = accounts?.find(acc => acc.id === fromAccountId)
   const toAccount = accounts?.find(acc => acc.id === toAccountId)
 
   const onSubmit = async (data: TransferFormData) => {
-    console.log('Form data received:', data)
     if (!user) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "User tidak ditemukan. Silakan login ulang."
-      })
+      toast({ variant: "destructive", title: "Error", description: "User tidak ditemukan" })
       return
     }
 
+    if (!fromAccount || !toAccount) {
+      toast({ variant: "destructive", title: "Error", description: "Akun tidak ditemukan" })
+      return
+    }
+
+    // Check if sufficient balance
+    if (fromAccount.balance < data.amount) {
+      toast({ 
+        variant: "destructive", 
+        title: "Saldo Tidak Cukup", 
+        description: `Saldo akun ${fromAccount.name} tidak mencukupi. Saldo saat ini: ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(fromAccount.balance)}`
+      })
+      return
+    }
+    
     try {
-      setIsTransferring(true)
-
-      // Validate sufficient balance
-      if (fromAccount && Number(fromAccount.balance) < Number(data.amount)) {
-        toast({
-          variant: "destructive",
-          title: "Saldo Tidak Mencukupi",
-          description: `Saldo ${fromAccount.name} hanya ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(Number(fromAccount.balance))}`
-        })
-        return
-      }
-
-      // Perform transfer operations with detailed error handling
-      console.log("Starting transfer process...")
-      
-      // Step 1: Deduct from source account
-      console.log("Step 1: Deducting from source account...")
-      try {
-        await updateAccountBalance.mutateAsync({
-          accountId: data.fromAccountId,
-          amount: -data.amount // negative to deduct
-        })
-        console.log("Step 1 completed successfully")
-      } catch (error) {
-        console.error("Step 1 failed:", error)
-        throw new Error(`Gagal mengurangi saldo dari akun ${fromAccount?.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      }
-
-      // Step 2: Add to destination account
-      console.log("Step 2: Adding to destination account...")
-      try {
-        await updateAccountBalance.mutateAsync({
-          accountId: data.toAccountId,
-          amount: data.amount // positive to add
-        })
-        console.log("Step 2 completed successfully")
-      } catch (error) {
-        console.error("Step 2 failed:", error)
-        // Try to rollback step 1
-        try {
-          await updateAccountBalance.mutateAsync({
-            accountId: data.fromAccountId,
-            amount: data.amount // restore the amount
-          })
-          console.log("Rollback completed")
-        } catch (rollbackError) {
-          console.error("Rollback failed:", rollbackError)
-        }
-        throw new Error(`Gagal menambah saldo ke akun ${toAccount?.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      }
-
-      // Step 3: Record transfer history after successful balance updates
-      console.log("Step 3: Recording transfer history...")
-      try {
-        await createTransfer.mutateAsync({
-          fromAccountId: data.fromAccountId,
-          toAccountId: data.toAccountId,
-          amount: data.amount,
-          description: data.description,
-          userId: user.id,
-          userName: user.name,
-        })
-        console.log("Step 3 completed successfully")
-      } catch (error) {
-        console.error("Step 3 failed:", error)
-        // Note: We don't rollback balance changes since they were successful
-        console.warn("Transfer completed but history recording failed")
-      }
-
-      console.log("Transfer process completed successfully")
-
-      toast({
-        title: "Transfer Berhasil",
-        description: `Transfer ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(data.amount)} dari ${fromAccount?.name} ke ${toAccount?.name} berhasil.`
+      // Deduct from source account
+      await updateAccountBalance.mutateAsync({
+        accountId: data.fromAccountId,
+        amount: -data.amount
       })
 
-      // Reset form and close dialog
+      // Add to destination account  
+      await updateAccountBalance.mutateAsync({
+        accountId: data.toAccountId,
+        amount: data.amount
+      })
+
+      // Record cash history for source account (outflow)
+      await addCashHistory.mutateAsync({
+        accountId: data.fromAccountId,
+        accountName: fromAccount.name,
+        type: "transfer_keluar",
+        amount: -data.amount,
+        description: `Transfer ke ${toAccount.name}: ${data.description}`,
+        referenceId: data.toAccountId,
+        referenceName: toAccount.name,
+        userId: user.id,
+        userName: user.name || user.email || "Unknown"
+      })
+
+      // Record cash history for destination account (inflow)
+      await addCashHistory.mutateAsync({
+        accountId: data.toAccountId,
+        accountName: toAccount.name,
+        type: "transfer_masuk",
+        amount: data.amount,
+        description: `Transfer dari ${fromAccount.name}: ${data.description}`,
+        referenceId: data.fromAccountId,
+        referenceName: fromAccount.name,
+        userId: user.id,
+        userName: user.name || user.email || "Unknown"
+      })
+      
+      toast({ 
+        title: "Transfer Berhasil", 
+        description: `Transfer ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(data.amount)} dari ${fromAccount.name} ke ${toAccount.name} berhasil.`
+      })
+      
       reset()
       onOpenChange(false)
-
     } catch (error) {
-      console.error("Transfer error:", error)
-      toast({
-        variant: "destructive",
-        title: "Transfer Gagal",
-        description: error instanceof Error ? error.message : "Terjadi kesalahan saat transfer."
+      toast({ 
+        variant: "destructive", 
+        title: "Transfer Gagal", 
+        description: error instanceof Error ? error.message : "Terjadi kesalahan saat transfer"
       })
-    } finally {
-      setIsTransferring(false)
-    }
-  }
-
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!isTransferring) {
-      onOpenChange(newOpen)
-      if (!newOpen) {
-        reset()
-      }
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ArrowRightLeft className="h-5 w-5" />
+            <ArrowRightLeft className="h-5 w-5 text-blue-600" />
             Transfer Antar Akun
           </DialogTitle>
           <DialogDescription>
-            Transfer uang dari satu akun ke akun lain. Pastikan saldo mencukupi sebelum melakukan transfer.
+            Transfer dana dari satu akun ke akun lainnya
           </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="fromAccountId">Dari Akun</Label>
-              <Select 
-                onValueChange={(value) => setValue("fromAccountId", value)}
-                value={fromAccountId}
-              >
+              <Select onValueChange={(value) => setValue("fromAccountId", value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih akun asal..." />
                 </SelectTrigger>
@@ -206,26 +155,21 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
                   {accounts?.map(account => (
                     <SelectItem key={account.id} value={account.id}>
                       <div className="flex flex-col">
-                        <span>{account.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(Number(account.balance))}
+                        <span className="font-medium">{account.name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Saldo: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(account.balance)}
                         </span>
                       </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.fromAccountId && (
-                <p className="text-sm text-destructive">{errors.fromAccountId.message}</p>
-              )}
+              {errors.fromAccountId && <p className="text-sm text-destructive">{errors.fromAccountId.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="toAccountId">Ke Akun</Label>
-              <Select 
-                onValueChange={(value) => setValue("toAccountId", value)}
-                value={toAccountId}
-              >
+              <Select onValueChange={(value) => setValue("toAccountId", value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih akun tujuan..." />
                 </SelectTrigger>
@@ -233,80 +177,78 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
                   {accounts?.filter(acc => acc.id !== fromAccountId).map(account => (
                     <SelectItem key={account.id} value={account.id}>
                       <div className="flex flex-col">
-                        <span>{account.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(Number(account.balance))}
+                        <span className="font-medium">{account.name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          Saldo: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(account.balance)}
                         </span>
                       </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.toAccountId && (
-                <p className="text-sm text-destructive">{errors.toAccountId.message}</p>
-              )}
+              {errors.toAccountId && <p className="text-sm text-destructive">{errors.toAccountId.message}</p>}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="amount">Jumlah Transfer</Label>
+            <Label htmlFor="amount">Jumlah Transfer (Rp)</Label>
             <Input
               id="amount"
               type="number"
-              {...register("amount", { valueAsNumber: true })}
-              placeholder="Masukkan jumlah transfer (min. Rp 1.000)"
+              min="1"
+              step="1"
+              placeholder="Masukkan jumlah transfer..."
+              {...register("amount")}
             />
-            {errors.amount && (
-              <p className="text-sm text-destructive">{errors.amount.message}</p>
-            )}
-            {fromAccount && amount > 0 && (
-              <div className="text-xs text-muted-foreground">
-                Saldo tersisa: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(Number(fromAccount.balance) - Number(amount))}
-              </div>
+            {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
+            {fromAccount && amount > 0 && amount > fromAccount.balance && (
+              <p className="text-sm text-destructive">
+                Saldo tidak cukup. Maksimal: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(fromAccount.balance)}
+              </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Keterangan</Label>
+            <Label htmlFor="description">Keterangan Transfer</Label>
             <Textarea
               id="description"
-              {...register("description")}
-              placeholder="Tujuan transfer (contoh: Modal kerja, Kas untuk operasional)"
+              placeholder="Misal: Penyesuaian saldo, modal kerja, dll"
               rows={3}
+              {...register("description")}
             />
-            {errors.description && (
-              <p className="text-sm text-destructive">{errors.description.message}</p>
-            )}
+            {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
           </div>
 
           {fromAccount && toAccount && amount > 0 && (
-            <div className="bg-muted p-3 rounded-lg">
-              <p className="text-sm font-medium mb-1">Ringkasan Transfer:</p>
-              <div className="text-xs space-y-1">
-                <div className="flex justify-between">
-                  <span>Dari {fromAccount.name}:</span>
-                  <span className="text-red-600">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(Number(fromAccount.balance))} → {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(Number(fromAccount.balance) - Number(amount))}</span>
+            <div className="p-3 bg-muted rounded-lg space-y-2">
+              <h4 className="font-medium text-sm">Preview Transfer:</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Dari: {fromAccount.name}</p>
+                  <p>Saldo saat ini: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(fromAccount.balance)}</p>
+                  <p className="text-red-600">Saldo setelah: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(fromAccount.balance - amount)}</p>
                 </div>
-                <div className="flex justify-between">
-                  <span>Ke {toAccount.name}:</span>
-                  <span className="text-green-600">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(Number(toAccount.balance))} → {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(Number(toAccount.balance) + Number(amount))}</span>
-                </div>
-                <div className="flex justify-between font-medium pt-1 border-t">
-                  <span>Jumlah Transfer:</span>
-                  <span className="text-blue-600">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(Number(amount))}</span>
+                <div>
+                  <p className="text-muted-foreground">Ke: {toAccount.name}</p>
+                  <p>Saldo saat ini: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(toAccount.balance)}</p>
+                  <p className="text-green-600">Saldo setelah: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(toAccount.balance + amount)}</p>
                 </div>
               </div>
             </div>
           )}
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isTransferring}>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Batal
             </Button>
-            <Button type="submit" disabled={isTransferring}>
-              {isTransferring ? "Memproses Transfer..." : "Transfer Sekarang"}
+            <Button 
+              type="submit" 
+              disabled={updateAccountBalance.isPending || (fromAccount && amount > fromAccount.balance)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {updateAccountBalance.isPending ? "Memproses..." : "Transfer"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

@@ -10,15 +10,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Badge } from './ui/badge'
 import { Product } from '@/types/product'
 import { Material } from '@/types/material'
-import { PlusCircle, Trash2, ChevronDown, ChevronUp, Clock, ArrowUpDown, ShoppingBag, Search, X } from 'lucide-react'
+import { PlusCircle, Trash2, ChevronDown, ChevronUp, ShoppingBag, Search, X } from 'lucide-react'
 import { Textarea } from './ui/textarea'
 import { useToast } from './ui/use-toast'
 import { useProducts } from '@/hooks/useProducts'
-import { useStockMovements } from '@/hooks/useStockMovements'
 import { Skeleton } from './ui/skeleton'
 import { Link } from 'react-router-dom'
-import { format } from 'date-fns'
-import { id } from 'date-fns/locale/id'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,11 +51,9 @@ const EMPTY_FORM_DATA: Omit<Product, 'id' | 'createdAt' | 'updatedAt'> = {
 export const ProductManagement = ({ materials = [] }: ProductManagementProps) => {
   const { toast } = useToast()
   const { products, isLoading, upsertProduct, deleteProduct } = useProducts()
-  const { movements, isLoading: isMovementsLoading } = useStockMovements()
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [formData, setFormData] = useState(EMPTY_FORM_DATA)
   const [isProductListOpen, setIsProductListOpen] = useState(true)
-  const [isMovementsOpen, setIsMovementsOpen] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<'indoor' | 'outdoor' | ''>('')
   const { user } = useAuth()
@@ -473,122 +468,6 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
         </Card>
       </Collapsible>
 
-      <Collapsible open={isMovementsOpen} onOpenChange={setIsMovementsOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <ArrowUpDown className="h-5 w-5" />
-                    Pergerakan Stock Produk
-                  </CardTitle>
-                  <CardDescription>
-                    Riwayat pergerakan stock produk dari transaksi dan aktivitas lainnya
-                  </CardDescription>
-                </div>
-                {isMovementsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Produk</TableHead>
-                    <TableHead>Jenis</TableHead>
-                    <TableHead>Alasan</TableHead>
-                    <TableHead className="text-right">Jumlah</TableHead>
-                    <TableHead>Transaksi</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Keterangan</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isMovementsLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
-                        <div className="flex items-center justify-center space-x-2">
-                          <Clock className="h-4 w-4 animate-spin" />
-                          <span>Memuat data pergerakan...</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : !movements || movements.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        <div className="flex flex-col items-center space-y-2">
-                          <ArrowUpDown className="h-12 w-12 opacity-50" />
-                          <p>Belum ada pergerakan produk</p>
-                          <p className="text-sm">
-                            Pergerakan akan tercatat saat transaksi dibuat atau stock diupdate
-                          </p>
-                          <p className="text-xs text-orange-600 mt-2">
-                            💡 Jika tabel kosong, jalankan file SQL: create_required_tables_simple.sql
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    movements.slice(0, 50).map((movement) => (
-                      <TableRow key={movement.id}>
-                        <TableCell className="font-mono text-sm">
-                          {format(new Date(movement.createdAt), 'dd/MM/yyyy HH:mm', { locale: id })}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {movement.productName}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getMovementTypeColor(movement.type)}>
-                            {getMovementTypeLabel(movement.type)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {getReasonLabel(movement.reason)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className={`text-right font-semibold ${
-                          movement.type === 'OUT' ? 'text-red-600' :
-                          movement.type === 'IN' ? 'text-green-600' : 'text-blue-600'
-                        }`}>
-                          {movement.type === 'OUT' ? '-' : '+'}
-                          {movement.quantity.toLocaleString('id-ID')}
-                        </TableCell>
-                        <TableCell>
-                          {movement.referenceId ? (
-                            <Link 
-                              to={`/transactions/${movement.referenceId}`}
-                              className="text-blue-600 hover:text-blue-800 hover:underline font-mono text-sm"
-                            >
-                              {movement.referenceId.slice(0, 8)}...
-                            </Link>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {movement.userName}
-                        </TableCell>
-                        <TableCell className="text-sm max-w-[200px] truncate">
-                          {movement.notes || '-'}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-              {movements && movements.length > 50 && (
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  Menampilkan 50 pergerakan terbaru dari {movements.length} total
-                </div>
-              )}
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
 
       {isMaterialDetailsOpen && selectedMaterial && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">

@@ -14,15 +14,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Material } from '@/types/material'
 import { useMaterials } from '@/hooks/useMaterials'
-import { useMaterialMovements } from '@/hooks/useMaterialMovements'
 import { useAuth } from '@/hooks/useAuth'
 import { RequestPoDialog } from './RequestPoDialog'
 import { AstragraphiaReport } from './AstragraphiaReport'
 import { Badge } from './ui/badge'
 import { useToast } from './ui/use-toast'
-import { Trash2, ChevronDown, ChevronUp, Clock, Package, ArrowUpDown, Search, X, FileText } from 'lucide-react'
-import { format } from 'date-fns'
-import { id } from 'date-fns/locale/id'
+import { Trash2, ChevronDown, ChevronUp, Package, Search, X, FileText } from 'lucide-react'
 
 const materialSchema = z.object({
   name: z.string().min(3, { message: "Nama bahan minimal 3 karakter." }),
@@ -58,7 +55,6 @@ const EMPTY_FORM_DATA: MaterialFormData = {
 
 export const MaterialManagement = () => {
   const { materials, isLoading, upsertMaterial, deleteMaterial } = useMaterials()
-  const { stockMovements, isLoading: isMovementsLoading } = useMaterialMovements()
   const { user } = useAuth()
   const { toast } = useToast()
 
@@ -68,7 +64,6 @@ export const MaterialManagement = () => {
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null)
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null)
   const [isMaterialListOpen, setIsMaterialListOpen] = useState(true)
-  const [isMovementsOpen, setIsMovementsOpen] = useState(true)
   const [showAstragraphiaReport, setShowAstragraphiaReport] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("")
@@ -166,33 +161,6 @@ export const MaterialManagement = () => {
     })
   }
 
-  const getMovementTypeColor = (type: string) => {
-    switch (type) {
-      case 'OUT': return 'bg-red-100 text-red-800'
-      case 'IN': return 'bg-green-100 text-green-800'
-      case 'ADJUSTMENT': return 'bg-blue-100 text-blue-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
-  }
-
-  const getMovementTypeLabel = (type: string) => {
-    switch (type) {
-      case 'OUT': return 'Keluar'
-      case 'IN': return 'Masuk'
-      case 'ADJUSTMENT': return 'Penyesuaian'
-      default: return type
-    }
-  }
-
-  const getReasonLabel = (reason: string) => {
-    switch (reason) {
-      case 'PRODUCTION_CONSUMPTION': return 'Produksi'
-      case 'PURCHASE': return 'Pembelian'
-      case 'ADJUSTMENT': return 'Penyesuaian'
-      case 'PRODUCTION_ACQUISITION': return 'Akuisisi Produksi'
-      default: return reason
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -447,122 +415,6 @@ export const MaterialManagement = () => {
         </Card>
       </Collapsible>
 
-      <Collapsible open={isMovementsOpen} onOpenChange={setIsMovementsOpen}>
-        <Card>
-          <CollapsibleTrigger asChild>
-            <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <ArrowUpDown className="h-5 w-5" />
-                    Pergerakan Penggunaan Bahan
-                  </CardTitle>
-                  <CardDescription>
-                    Riwayat semua pergerakan stok material dari transaksi dan aktivitas lainnya
-                  </CardDescription>
-                </div>
-                {isMovementsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </div>
-            </CardHeader>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Tanggal</TableHead>
-                    <TableHead>Material</TableHead>
-                    <TableHead>Jenis</TableHead>
-                    <TableHead>Alasan</TableHead>
-                    <TableHead className="text-right">Jumlah</TableHead>
-                    <TableHead>Transaksi</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Keterangan</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isMovementsLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8">
-                        <div className="flex items-center justify-center space-x-2">
-                          <Clock className="h-4 w-4 animate-spin" />
-                          <span>Memuat data pergerakan...</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : !stockMovements || stockMovements.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                        <div className="flex flex-col items-center space-y-2">
-                          <ArrowUpDown className="h-12 w-12 opacity-50" />
-                          <p>Belum ada pergerakan material</p>
-                          <p className="text-sm">
-                            Pergerakan akan tercatat saat transaksi berubah status menjadi "Proses Produksi"
-                          </p>
-                          <p className="text-xs text-orange-600 mt-2">
-                            💡 Jika tabel kosong, jalankan file SQL: create_required_tables_simple.sql
-                          </p>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    stockMovements.slice(0, 50).map((movement) => (
-                      <TableRow key={movement.id}>
-                        <TableCell className="font-mono text-sm">
-                          {format(new Date(movement.createdAt), 'dd/MM/yyyy HH:mm', { locale: id })}
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {movement.materialName}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getMovementTypeColor(movement.type)}>
-                            {getMovementTypeLabel(movement.type)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {getReasonLabel(movement.reason)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className={`text-right font-semibold ${
-                          movement.type === 'OUT' ? 'text-red-600' :
-                          movement.type === 'IN' ? 'text-green-600' : 'text-blue-600'
-                        }`}>
-                          {movement.type === 'OUT' ? '-' : '+'}
-                          {movement.quantity.toLocaleString('id-ID')}
-                        </TableCell>
-                        <TableCell>
-                          {movement.referenceId ? (
-                            <Link 
-                              to={`/transactions/${movement.referenceId}`}
-                              className="text-blue-600 hover:text-blue-800 hover:underline font-mono text-sm"
-                            >
-                              {movement.referenceId.slice(0, 8)}...
-                            </Link>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {movement.userName}
-                        </TableCell>
-                        <TableCell className="text-sm max-w-[200px] truncate">
-                          {movement.notes || '-'}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-              {stockMovements && stockMovements.length > 50 && (
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  Menampilkan 50 pergerakan terbaru dari {stockMovements.length} total
-                </div>
-              )}
-            </CardContent>
-          </CollapsibleContent>
-        </Card>
-      </Collapsible>
 
       {/* Astragraphia Report */}
       {showAstragraphiaReport && (

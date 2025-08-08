@@ -91,7 +91,7 @@ export const PosForm = () => {
       setIsQuotationProcessed(true);
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state, customers, navigate, isQuotationProcessed]);
+  }, [location.state, customers, isQuotationProcessed]);
 
   const subTotal = useMemo(() => items.reduce((total, item) => total + (item.qty * item.harga), 0), [items]);
   const subtotalAfterDiskon = useMemo(() => subTotal - diskon, [subTotal, diskon]);
@@ -191,7 +191,10 @@ export const PosForm = () => {
         
         setSavedTransaction(savedData);
         toast({ title: "Sukses", description: "Transaksi berhasil disimpan." });
-        setIsPrintDialogOpen(true);
+        
+        // Redirect to transaction list page after successful save
+        navigate('/transactions');
+        
         // Reset form
         setSelectedCustomer(null);
         setItems([]);

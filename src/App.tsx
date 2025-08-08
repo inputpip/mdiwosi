@@ -29,7 +29,6 @@ const AccountDetailPage = lazy(() => import("@/pages/AccountDetailPage"));
 const ReceivablesPage = lazy(() => import("@/pages/ReceivablesPage"));
 const ExpensePage = lazy(() => import("@/pages/ExpensePage"));
 const EmployeeAdvancePage = lazy(() => import("@/pages/EmployeeAdvancePage"));
-const FinancialReportPage = lazy(() => import("@/pages/FinancialReportPage"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const AccountSettingsPage = lazy(() => import("@/pages/AccountSettingsPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
@@ -42,7 +41,7 @@ const RolePermissionPage = lazy(() => import("@/pages/RolePermissionPage"));
 const ProductAnalyticsDebugPage = lazy(() => import("@/pages/ProductAnalyticsDebugPage"));
 const MaterialMovementReportPage = lazy(() => import("@/pages/MaterialMovementReportPage"));
 const ServiceMaterialReportPage = lazy(() => import("@/pages/ServiceMaterialReportPage"));
-const DailyReportPage = lazy(() => import("@/pages/DailyReportPage"));
+const FinancialReportsPage = lazy(() => import("@/pages/FinancialReportsPage"));
 
 function App() {
   // Handle chunk loading errors
@@ -62,7 +61,7 @@ function App() {
               {/* Mobile routes - only POS and Attendance */}
               {shouldUseMobileLayout ? (
                 <Route element={<ProtectedRoute><MobileLayout /></ProtectedRoute>}>
-                  <Route path="/" element={<></>} />
+                  <Route path="/" element={<PosPage />} />
                   <Route path="/pos" element={<PosPage />} />
                   <Route path="/attendance" element={<AttendancePage />} />
                   <Route path="*" element={<NotFound />} />
@@ -89,7 +88,6 @@ function App() {
                   <Route path="/receivables" element={<ReceivablesPage />} />
                   <Route path="/expenses" element={<ExpensePage />} />
                   <Route path="/advances" element={<EmployeeAdvancePage />} />
-                  <Route path="/financial-report" element={<FinancialReportPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/account-settings" element={<AccountSettingsPage />} />
                   <Route path="/attendance" element={<AttendancePage />} />
@@ -100,7 +98,7 @@ function App() {
                   <Route path="/debug/product-analytics" element={<ProductAnalyticsDebugPage />} />
                   <Route path="/material-movements" element={<MaterialMovementReportPage />} />
                   <Route path="/service-material-report" element={<ServiceMaterialReportPage />} />
-                  <Route path="/daily-report" element={<DailyReportPage />} />
+                  <Route path="/laporan-keuangan" element={<FinancialReportsPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
               )}

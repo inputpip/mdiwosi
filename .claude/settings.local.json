@@ -15,7 +15,12 @@
       "Bash(ls:*)",
       "mcp__ide__getDiagnostics",
       "Bash(npm run typecheck:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(find:*)",
+      "Bash(dir:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(npm install:*)"
     ],
     "deny": []
   }

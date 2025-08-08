@@ -1,15 +1,17 @@
 "use client"
 import * as React from "react"
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table"
+import { ColumnDef, flexRender, getCoreRowModel, useReactTable, Row } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Transaction } from "@/types/transaction"
 import { useTransactions } from "@/hooks/useTransactions"
+import { usePaymentHistoryBatch } from "@/hooks/usePaymentHistory"
 import { format } from "date-fns"
 import { id } from "date-fns/locale/id"
 import { PayReceivableDialog } from "./PayReceivableDialog"
+import { PaymentHistoryRow } from "./PaymentHistoryRow"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu"
-import { MoreHorizontal } from "lucide-react"
+import { MoreHorizontal, ChevronDown, ChevronRight } from "lucide-react"
 import { useAuthContext } from "@/contexts/AuthContext"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog"
 import { showSuccess, showError } from "@/utils/toast"
@@ -20,10 +22,17 @@ export function ReceivablesTable() {
   const [isPayDialogOpen, setIsPayDialogOpen] = React.useState(false)
   const [isWriteOffDialogOpen, setIsWriteOffDialogOpen] = React.useState(false)
   const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null)
+  const [expandedRows, setExpandedRows] = React.useState<Set<string>>(new Set())
 
   const receivables = React.useMemo(() => {
     return transactions?.filter(t => t.paymentStatus === 'Belum Lunas') || []
   }, [transactions])
+
+  const receivableIds = React.useMemo(() => {
+    return receivables.map(r => r.id)
+  }, [receivables])
+
+  const { paymentHistories, isLoading: isLoadingHistory } = usePaymentHistoryBatch(receivableIds)
 
   const handlePayClick = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
@@ -35,14 +44,25 @@ export function ReceivablesTable() {
     setIsWriteOffDialogOpen(true)
   }
 
+  const toggleRowExpansion = (transactionId: string) => {
+    const newExpanded = new Set(expandedRows)
+    if (newExpanded.has(transactionId)) {
+      newExpanded.delete(transactionId)
+    } else {
+      newExpanded.add(transactionId)
+    }
+    setExpandedRows(newExpanded)
+  }
+
   const handleConfirmWriteOff = async () => {
     if (!selectedTransaction) return
 
     try {
       await writeOffReceivable.mutateAsync(selectedTransaction)
       showSuccess(`Piutang untuk No. Order ${selectedTransaction.id} berhasil diputihkan.`)
-    } catch (error: any) {
-      showError(error.message || "Gagal memutihkan piutang.")
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Gagal memutihkan piutang."
+      showError(errorMessage)
     } finally {
       setIsWriteOffDialogOpen(false)
       setSelectedTransaction(null)
@@ -50,6 +70,29 @@ export function ReceivablesTable() {
   }
 
   const columns: ColumnDef<Transaction>[] = [
+    {
+      id: "expand",
+      header: "",
+      cell: ({ row }) => {
+        const isExpanded = expandedRows.has(row.original.id)
+        const hasPaymentHistory = paymentHistories[row.original.id]?.length > 0
+        
+        return hasPaymentHistory ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={() => toggleRowExpansion(row.original.id)}
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-3 w-3" />
+            ) : (
+              <ChevronRight className="h-3 w-3" />
+            )}
+          </Button>
+        ) : null
+      }
+    },
     { accessorKey: "id", header: "No. Order" },
     { accessorKey: "customerName", header: "Pelanggan" },
     { accessorKey: "orderDate", header: "Tgl Order", cell: ({ row }) => format(new Date(row.getValue("orderDate")), "d MMM yyyy", { locale: id }) },
@@ -128,9 +171,22 @@ export function ReceivablesTable() {
             {isLoading ? <TableRow><TableCell colSpan={columns.length}>Memuat...</TableCell></TableRow> :
               table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map(row => (
-                  <TableRow key={row.id}>
-                    {row.getVisibleCells().map(cell => <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>)}
-                  </TableRow>
+                  <React.Fragment key={row.id}>
+                    <TableRow>
+                      {row.getVisibleCells().map(cell => <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>)}
+                    </TableRow>
+                    {expandedRows.has(row.original.id) && (
+                      <TableRow>
+                        <TableCell colSpan={columns.length} className="p-0">
+                          <PaymentHistoryRow
+                            transactionId={row.original.id}
+                            paymentHistory={paymentHistories[row.original.id] || []}
+                            isLoading={isLoadingHistory}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 ))
               ) : (
                 <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">Tidak ada piutang.</TableCell></TableRow>

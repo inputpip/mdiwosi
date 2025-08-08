@@ -16,9 +16,9 @@ import { AccountType } from "@/types/account"
 import { useNavigate } from "react-router-dom"
 import { Skeleton } from "./ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
-import { Trash2, ArrowRightLeft } from "lucide-react"
-import { format } from "date-fns"
-import { id } from "date-fns/locale/id"
+import { TransferAccountDialog } from "./TransferAccountDialog"
+import { CashInOutDialog } from "./CashInOutDialog"
+import { Trash2, ArrowRightLeft, TrendingUp, TrendingDown } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,8 +30,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { TransferAccountDialog } from "./TransferAccountDialog"
-import { useAccountTransfers } from "@/hooks/useAccountTransfers"
 
 const accountSchema = z.object({
   name: z.string().min(3, "Nama akun minimal 3 karakter."),
@@ -50,8 +48,9 @@ export function AccountManagement() {
   const { toast } = useToast()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { transfers, isLoading: isLoadingTransfers } = useAccountTransfers()
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false)
+  const [isCashInDialogOpen, setIsCashInDialogOpen] = useState(false)
+  const [isCashOutDialogOpen, setIsCashOutDialogOpen] = useState(false)
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<AccountFormData>({
     resolver: zodResolver(accountSchema),
@@ -101,13 +100,27 @@ export function AccountManagement() {
   }
 
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner';
-  const canTransfer = user?.role === 'owner' || user?.role === 'cashier';
+  const canManageCash = user?.role === 'owner' || user?.role === 'admin' || user?.role === 'cashier';
 
   return (
     <div className="space-y-6">
       <TransferAccountDialog 
         open={isTransferDialogOpen} 
         onOpenChange={setIsTransferDialogOpen} 
+      />
+      <CashInOutDialog
+        open={isCashInDialogOpen}
+        onOpenChange={setIsCashInDialogOpen}
+        type="in"
+        title="Kas Masuk"
+        description="Input pemasukan kas secara manual"
+      />
+      <CashInOutDialog
+        open={isCashOutDialogOpen}
+        onOpenChange={setIsCashOutDialogOpen}
+        type="out"
+        title="Kas Keluar"
+        description="Input pengeluaran kas secara manual"
       />
       <Card>
         <CardHeader>
@@ -155,14 +168,36 @@ export function AccountManagement() {
             <CardTitle>Daftar Akun</CardTitle>
             <CardDescription>Kelola semua akun keuangan perusahaan</CardDescription>
           </div>
-          {canTransfer && (
-            <Button 
-              onClick={() => setIsTransferDialogOpen(true)} 
-              variant="secondary"
-            >
-              <ArrowRightLeft className="mr-2 h-4 w-4" /> 
-              Transfer Antar Akun
-            </Button>
+          {canManageCash && (
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => setIsCashInDialogOpen(true)} 
+                variant="outline"
+                size="sm"
+                className="text-green-600 border-green-600 hover:bg-green-50"
+              >
+                <TrendingUp className="mr-2 h-4 w-4" /> 
+                Kas Masuk
+              </Button>
+              <Button 
+                onClick={() => setIsCashOutDialogOpen(true)} 
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-600 hover:bg-red-50"
+              >
+                <TrendingDown className="mr-2 h-4 w-4" /> 
+                Kas Keluar
+              </Button>
+              <Button 
+                onClick={() => setIsTransferDialogOpen(true)} 
+                variant="outline"
+                size="sm"
+                className="text-blue-600 border-blue-600 hover:bg-blue-50"
+              >
+                <ArrowRightLeft className="mr-2 h-4 w-4" /> 
+                Transfer
+              </Button>
+            </div>
           )}
         </CardHeader>
         <CardContent>
@@ -227,75 +262,6 @@ export function AccountManagement() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ArrowRightLeft className="h-5 w-5" />
-            Riwayat Transfer Antar Akun
-          </CardTitle>
-          <CardDescription>
-            Semua transfer yang dilakukan antar akun keuangan
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingTransfers ? (
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-            </div>
-          ) : transfers && transfers.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Dari Akun</TableHead>
-                  <TableHead>Ke Akun</TableHead>
-                  <TableHead>Keterangan</TableHead>
-                  <TableHead>Diinput Oleh</TableHead>
-                  <TableHead className="text-right">Jumlah</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {transfers.map(transfer => {
-                  const fromAccount = accounts?.find(acc => acc.id === transfer.fromAccountId)
-                  const toAccount = accounts?.find(acc => acc.id === transfer.toAccountId)
-                  return (
-                    <TableRow key={transfer.id}>
-                      <TableCell>
-                        {format(new Date(transfer.createdAt), "d MMM yyyy, HH:mm", { locale: id })}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {fromAccount?.name || transfer.fromAccountId}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {toAccount?.name || transfer.toAccountId}
-                      </TableCell>
-                      <TableCell>
-                        {transfer.description}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium">{transfer.userName}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-blue-600">
-                        {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transfer.amount)}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <ArrowRightLeft className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Belum ada riwayat transfer antar akun.</p>
-              <p className="text-sm">Transfer pertama akan muncul di sini setelah dilakukan.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   )
 }

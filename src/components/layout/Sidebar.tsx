@@ -28,6 +28,7 @@ import {
   PackageOpen,
   Package2,
   Shield,
+  Receipt,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
@@ -78,12 +79,11 @@ const menuItems = [
     // different top‑level sections which made the navigation cluttered.
     title: "Laporan",
     items: [
-      { href: "/daily-report", label: "Laporan Harian Kas", icon: FileText },
+      { href: "/laporan-keuangan", label: "Laporan Keuangan", icon: Receipt },
       { href: "/stock-report", label: "Laporan Stock", icon: BarChart3 },
       { href: "/material-movements", label: "Pergerakan Penggunaan Bahan", icon: Package2 },
       { href: "/transaction-items-report", label: "Laporan Item Keluar", icon: PackageOpen },
       { href: "/attendance/report", label: "Laporan Absensi", icon: BookCheck },
-      { href: "/financial-report", label: "Laporan Keuangan", icon: DollarSign },
     ],
   },
   {

@@ -80,7 +80,6 @@ const DEFAULT_PERMISSIONS = {
     receivables_view: false,
     expenses_view: false, expenses_create: false,
     advances_view: false, advances_create: false,
-    financial_reports: false,
     stock_reports: true, transaction_reports: false, attendance_reports: false,
     settings_access: false, role_management: false, attendance_access: true,
   },
