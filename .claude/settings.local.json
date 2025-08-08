@@ -20,7 +20,8 @@
       "Bash(dir:*)",
       "Bash(node:*)",
       "Bash(curl:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm update)"
     ],
     "deny": []
   }
