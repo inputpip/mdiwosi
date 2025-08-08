@@ -30,69 +30,98 @@ ORDER BY
         ELSE 3
     END;
 
--- Step 2: Cek data existing
+-- Step 2: Cek data existing (Safe version - detect columns first)
 SELECT 'EXISTING DATA COUNT' as info;
 
+-- Check transactions table with dynamic column detection
+DO $$
+DECLARE
+    account_col TEXT := NULL;
+    amount_col TEXT := NULL;
+    created_col TEXT := NULL;
+    sql_query TEXT;
+BEGIN
+    -- Find account-related column
+    SELECT column_name INTO account_col 
+    FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'transactions'
+      AND (column_name LIKE '%account%' OR column_name = 'payment_method_id')
+    LIMIT 1;
+    
+    -- Find amount column
+    SELECT column_name INTO amount_col
+    FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'transactions'  
+      AND (column_name LIKE '%total%' OR column_name LIKE '%amount%')
+    LIMIT 1;
+    
+    -- Find created_at column
+    SELECT column_name INTO created_col
+    FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+      AND table_name = 'transactions'
+      AND (column_name = 'created_at' OR column_name LIKE '%created%' OR column_name = 'timestamp')
+    LIMIT 1;
+
+    RAISE NOTICE 'TRANSACTIONS TABLE ANALYSIS:';
+    RAISE NOTICE '- Account column found: %', COALESCE(account_col, 'NOT FOUND');
+    RAISE NOTICE '- Amount column found: %', COALESCE(amount_col, 'NOT FOUND'); 
+    RAISE NOTICE '- Created column found: %', COALESCE(created_col, 'NOT FOUND');
+END $$;
+
+-- Safe count for transactions
 SELECT 
     'transactions' as table_name,
     COUNT(*) as total_records,
-    COUNT(*) FILTER (WHERE account_id IS NOT NULL AND total_amount IS NOT NULL) as valid_for_migration,
-    MIN(created_at) as oldest,
-    MAX(created_at) as newest
+    'Check console for column analysis' as note
 FROM transactions
 WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transactions')
 
 UNION ALL
 
+-- Safe count for accounts
 SELECT 
     'accounts' as table_name,
     COUNT(*) as total_records,
-    COUNT(*) FILTER (WHERE name IS NOT NULL) as valid_for_migration,
-    MIN(created_at) as oldest,
-    MAX(created_at) as newest  
+    'Table exists' as note
 FROM accounts
 WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'accounts')
 
 UNION ALL
 
+-- Safe count for cash_history 
 SELECT 
     'cash_history' as table_name,
     COUNT(*) as total_records,
-    COUNT(*) as valid_for_migration,
-    MIN(created_at) as oldest,
-    MAX(created_at) as newest
+    'New table' as note
 FROM cash_history
 WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cash_history')
 
 UNION ALL
 
+-- Safe count for customers
 SELECT 
-    'expenses' as table_name,
+    'customers' as table_name,
     COUNT(*) as total_records,
-    COUNT(*) FILTER (WHERE account_id IS NOT NULL AND amount IS NOT NULL) as valid_for_migration,
-    MIN(created_at) as oldest,
-    MAX(created_at) as newest
-FROM expenses  
-WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'expenses');
+    'Customer data' as note
+FROM customers
+WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'customers');
 
--- Step 3: Sample data preview (untuk cek kualitas data)
+-- Step 3: Sample data preview (safe version without assuming columns)
 SELECT 'SAMPLE TRANSACTIONS DATA' as info;
 
-SELECT 
-    t.id,
-    t.account_id,
-    a.name as account_name,
-    t.total_amount,
-    c.name as customer_name,
-    t.items_summary,
-    t.created_at
-FROM transactions t
-LEFT JOIN accounts a ON t.account_id = a.id  
-LEFT JOIN customers c ON t.customer_id = c.id
-WHERE t.account_id IS NOT NULL 
-  AND t.total_amount IS NOT NULL
-ORDER BY t.created_at DESC
-LIMIT 5;
+-- Get first few transactions to see actual structure  
+SELECT *
+FROM transactions 
+WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transactions')
+ORDER BY 
+  CASE WHEN EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'transactions' AND column_name = 'created_at'
+  ) THEN created_at ELSE NULL END DESC
+LIMIT 3;
 
 -- Step 4: Cek apakah sudah ada data di cash_history  
 SELECT 'EXISTING CASH HISTORY' as info;
@@ -112,31 +141,29 @@ ORDER BY count DESC;
 -- Step 5: Identifikasi conflicts (data yang sudah ada di cash_history)
 SELECT 'MIGRATION CONFLICTS CHECK' as info;
 
+-- Safe conflict check without assuming column structure
 SELECT 
-    'transactions_already_migrated' as conflict_type,
+    'transactions_total' as conflict_type,
     COUNT(*) as count
 FROM transactions t
-WHERE EXISTS (
-    SELECT 1 FROM cash_history ch 
-    WHERE ch.reference_id = t.id 
-    AND ch.type = 'orderan'
-)
-AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cash_history')
+WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transactions')
 
 UNION ALL
 
 SELECT 
-    'transactions_ready_to_migrate' as conflict_type,
+    'cash_history_total' as conflict_type,
     COUNT(*) as count  
-FROM transactions t
-WHERE t.account_id IS NOT NULL 
-  AND t.total_amount IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM cash_history ch 
-    WHERE ch.reference_id = t.id 
-    AND ch.type = 'orderan'
-  )
-AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cash_history');
+FROM cash_history ch
+WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cash_history')
+
+UNION ALL
+
+SELECT 
+    'cash_history_orderan_type' as conflict_type,
+    COUNT(*) as count  
+FROM cash_history ch
+WHERE ch.type = 'orderan'
+  AND EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cash_history');
 
 -- Step 6: Cek user dan profile data
 SELECT 'USER DATA CHECK' as info;
@@ -155,7 +182,7 @@ SELECT
 FROM profiles
 WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'profiles');
 
--- Step 7: Final recommendation
+-- Step 7: Final recommendation (safe version)
 SELECT 'MIGRATION READINESS' as info;
 
 SELECT 
@@ -163,15 +190,15 @@ SELECT
         WHEN (
             EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transactions') AND
             EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'accounts') AND
-            (SELECT COUNT(*) FROM transactions WHERE account_id IS NOT NULL AND total_amount IS NOT NULL) > 0
-        ) THEN '✅ READY FOR MIGRATION'
+            (SELECT COUNT(*) FROM transactions) > 0
+        ) THEN '✅ BASIC TABLES READY - Need to check column structure'
         WHEN NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cash_history') 
         THEN '⚠️ NEED TO CREATE CASH_HISTORY TABLE FIRST'
-        WHEN (SELECT COUNT(*) FROM transactions WHERE account_id IS NOT NULL AND total_amount IS NOT NULL) = 0
+        WHEN (SELECT COUNT(*) FROM transactions) = 0
         THEN '📝 NO TRANSACTION DATA TO MIGRATE'
         ELSE '❌ MISSING REQUIRED TABLES'
     END as status,
-    (SELECT COUNT(*) FROM transactions WHERE account_id IS NOT NULL AND total_amount IS NOT NULL) as transactions_to_migrate,
+    (SELECT COUNT(*) FROM transactions WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'transactions')) as total_transactions,
     (SELECT COUNT(*) FROM cash_history WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'cash_history')) as current_cash_history_records;
 
 -- =====================================================
