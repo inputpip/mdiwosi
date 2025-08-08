@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ComprehensiveFinancialReport } from "@/components/ComprehensiveFinancialReport"
 import { DailyFinancialReport } from "@/components/DailyFinancialReport"
+import { DebugCashHistory } from "@/components/DebugCashHistory"
 import { useAuth } from "@/hooks/useAuth"
-import { FileText, CalendarDays, Receipt, TrendingUp, BarChart3 } from "lucide-react"
+import { FileText, CalendarDays, Receipt, TrendingUp, BarChart3, Bug } from "lucide-react"
 
 export default function FinancialReportsPage() {
   const { user } = useAuth()
@@ -23,7 +24,7 @@ export default function FinancialReportsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
           <TabsTrigger value="daily" className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
             Laporan Harian
@@ -35,6 +36,15 @@ export default function FinancialReportsPage() {
             <BarChart3 className="h-4 w-4" />
             Laporan Komprehensif
           </TabsTrigger>
+          {(user?.role === 'admin' || user?.role === 'owner') && (
+            <TabsTrigger 
+              value="debug" 
+              className="flex items-center gap-2"
+            >
+              <Bug className="h-4 w-4" />
+              Debug Data
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Daily Financial Report Tab */}
@@ -154,6 +164,67 @@ export default function FinancialReportsPage() {
 
           <ComprehensiveFinancialReport />
         </TabsContent>
+
+        {/* Debug Tab - Only for Admin/Owner */}
+        {(user?.role === 'admin' || user?.role === 'owner') && (
+          <TabsContent value="debug" className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Akses Level</CardTitle>
+                  <Bug className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-red-600">Admin/Owner</div>
+                  <p className="text-xs text-muted-foreground">
+                    Hanya untuk debugging
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Fungsi Utama</CardTitle>
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-blue-600">Debug Data</div>
+                  <p className="text-xs text-muted-foreground">
+                    Periksa & sync data
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Deteksi Masalah</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-yellow-600">Data Sync</div>
+                  <p className="text-xs text-muted-foreground">
+                    Sinkronisasi otomatis
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Perbaikan</CardTitle>
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">Auto Fix</div>
+                  <p className="text-xs text-muted-foreground">
+                    Perbaikan otomatis
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <DebugCashHistory />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

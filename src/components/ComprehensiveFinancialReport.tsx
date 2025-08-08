@@ -136,7 +136,10 @@ export function ComprehensiveFinancialReport() {
     // Date range filter
     if (startDate && endDate) {
       const historyDate = format(history.createdAt, 'yyyy-MM-dd')
-      if (historyDate < startDate || historyDate > endDate) return false
+      if (historyDate < startDate || historyDate > endDate) {
+        console.log('Filtered out by date:', historyDate, 'not in range', startDate, '-', endDate)
+        return false
+      }
     }
     
     // Account filter
@@ -151,6 +154,12 @@ export function ComprehensiveFinancialReport() {
     
     return true
   }) || []
+
+  // Debug logging
+  console.log('Total cash history records:', cashHistory?.length || 0)
+  console.log('Filtered data count:', filteredData.length)
+  console.log('Date range filter:', startDate, 'to', endDate)
+  console.log('Sample data:', cashHistory?.slice(0, 2))
 
   // Hitung summary
   const totalInflow = filteredData

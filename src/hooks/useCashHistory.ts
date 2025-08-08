@@ -34,9 +34,10 @@ const fromAppToDb = (appHistory: CreateCashHistoryData) => ({
 export const useCashHistory = () => {
   const queryClient = useQueryClient()
 
-  const { data: cashHistory, isLoading } = useQuery({
+  const { data: cashHistory, isLoading, refetch } = useQuery({
     queryKey: ['cashHistory'],
     queryFn: async (): Promise<CashHistory[]> => {
+      console.log('Fetching cash history from Supabase...')
       const { data, error } = await supabase
         .from('cash_history')
         .select('*')
@@ -46,8 +47,13 @@ export const useCashHistory = () => {
         console.error('Error fetching cash history:', error)
         throw new Error(error.message)
       }
+      console.log('Cash history fetched:', data?.length || 0, 'records')
       return data ? data.map(fromDbToApp) : []
-    }
+    },
+    staleTime: 30000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
+    refetchOnMount: true
   })
 
   const addCashHistory = useMutation({
@@ -97,5 +103,6 @@ export const useCashHistory = () => {
     getCashHistoryByAccount,
     getCashHistoryByDateRange,
     getCashHistoryByType,
+    refetch,
   }
 }
