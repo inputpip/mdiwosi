@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { supabase } from "@/integrations/supabase/client"
 import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Database, AlertTriangle, CheckCircle } from "lucide-react"
+import { RefreshCw, Database, AlertTriangle, CheckCircle, Settings } from "lucide-react"
 import { format } from "date-fns"
 import { id } from "date-fns/locale/id"
+import { MigrationTester } from "./MigrationTester"
 
 interface RawData {
   tableName: string
@@ -173,6 +174,8 @@ export function DebugCashHistory() {
 
   return (
     <div className="space-y-6">
+      <MigrationTester />
+      
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
