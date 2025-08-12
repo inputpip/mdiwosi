@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Expense } from '@/types/expense'
 import { supabase } from '@/integrations/supabase/client'
 import { useAccounts } from './useAccounts'
+import { useAuth } from './useAuth'
 
 // Helper to map from DB (snake_case) to App (camelCase)
 const fromDbToApp = (dbExpense: any): Expense => ({
@@ -27,6 +28,7 @@ const fromAppToDb = (appExpense: Partial<Omit<Expense, 'id' | 'createdAt'>>) => 
 export const useExpenses = () => {
   const queryClient = useQueryClient();
   const { updateAccountBalance } = useAccounts();
+  const { user } = useAuth();
 
   const { data: expenses, isLoading } = useQuery<Expense[]>({
     queryKey: ['expenses'],
@@ -51,16 +53,74 @@ export const useExpenses = () => {
       if (newExpenseData.accountId) {
         updateAccountBalance.mutate({ accountId: newExpenseData.accountId, amount: -newExpenseData.amount });
       }
+
+      // Record in cash_history for expense tracking
+      if (newExpenseData.accountId && user) {
+        try {
+          // Determine expense type based on category
+          let sourceType = 'manual_expense';
+          if (newExpenseData.category === 'Panjar Karyawan') {
+            sourceType = 'employee_advance';
+          } else if (newExpenseData.category === 'Pembayaran PO') {
+            sourceType = 'po_payment';
+          } else if (newExpenseData.category === 'Penghapusan Piutang') {
+            sourceType = 'receivables_writeoff';
+          }
+
+          const cashFlowRecord = {
+            account_id: newExpenseData.accountId,
+            transaction_type: 'expense',
+            amount: newExpenseData.amount,
+            description: newExpenseData.description,
+            reference_number: `EXP-${data.id.slice(4)}`, // Remove 'exp-' prefix
+            source_type: sourceType,
+            created_by: user.id,
+            created_by_name: user.name || user.email || 'Unknown User'
+          };
+
+          console.log('Recording expense in cash history:', cashFlowRecord);
+
+          const { error: cashFlowError } = await supabase
+            .from('cash_history')
+            .insert(cashFlowRecord);
+
+          if (cashFlowError) {
+            console.error('Failed to record expense in cash flow:', cashFlowError.message);
+          } else {
+            console.log('Successfully recorded expense in cash history');
+          }
+        } catch (error) {
+          console.error('Error recording expense cash flow:', error);
+        }
+      } else {
+        console.log('Skipping cash flow record - missing accountId or user:', { 
+          accountId: newExpenseData.accountId, 
+          user: user ? 'exists' : 'missing' 
+        });
+      }
+
       return fromDbToApp(data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['cashFlow'] });
     },
   });
 
   const deleteExpense = useMutation({
     mutationFn: async (expenseId: string): Promise<Expense> => {
+      // First delete related cash_history records
+      const { error: cashHistoryError } = await supabase
+        .from('cash_history')
+        .delete()
+        .eq('reference_number', `EXP-${expenseId.slice(4)}`);
+      
+      if (cashHistoryError) {
+        console.error('Failed to delete related cash history:', cashHistoryError.message);
+        // Continue anyway, don't throw
+      }
+
       const { data: deletedExpense, error: deleteError } = await supabase
         .from('expenses')
         .delete()
@@ -82,6 +142,7 @@ export const useExpenses = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['cashFlow'] });
     }
   });
 

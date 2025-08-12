@@ -89,23 +89,19 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
         amount: data.amount
       })
 
-      // Record outbound payment for source account
+      // Generate unique reference for this transfer
+      const transferRef = `TRANSFER-${Date.now()}`;
+
+      // Record outbound cash history for source account (expense for this account)
       const { error: outboundError } = await supabase
-        .from('payments')
+        .from('cash_history')
         .insert({
-          payment_type: "outbound",
-          payment_method: "transfer",
-          payment_source: "manual_entry",
+          account_id: data.fromAccountId,
+          transaction_type: 'transfer', // Special type for transfers
           amount: data.amount,
-          partner_name: `Transfer to ${toAccount.name}`,
-          partner_type: "internal",
-          payment_account_id: data.fromAccountId,
-          payment_account_name: fromAccount.name,
-          destination_account_id: data.toAccountId,
-          destination_account_name: toAccount.name,
-          reference: data.toAccountId,
-          communication: `Transfer ke ${toAccount.name}: ${data.description}`,
-          state: "posted",
+          description: `Transfer ke ${toAccount.name}: ${data.description}`,
+          reference_number: transferRef,
+          source_type: 'transfer_keluar',
           created_by: user.id,
           created_by_name: user.name || user.email || "Unknown User"
         })
@@ -114,23 +110,16 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
         throw new Error(`Failed to record outbound transfer: ${outboundError.message}`)
       }
 
-      // Record inbound payment for destination account  
+      // Record inbound cash history for destination account (income for this account)
       const { error: inboundError } = await supabase
-        .from('payments')
+        .from('cash_history')
         .insert({
-          payment_type: "inbound", 
-          payment_method: "transfer",
-          payment_source: "manual_entry",
+          account_id: data.toAccountId,
+          transaction_type: 'transfer', // Special type for transfers
           amount: data.amount,
-          partner_name: `Transfer from ${fromAccount.name}`,
-          partner_type: "internal",
-          payment_account_id: data.toAccountId,
-          payment_account_name: toAccount.name,
-          destination_account_id: data.fromAccountId,
-          destination_account_name: fromAccount.name,
-          reference: data.fromAccountId,
-          communication: `Transfer dari ${fromAccount.name}: ${data.description}`,
-          state: "posted",
+          description: `Transfer dari ${fromAccount.name}: ${data.description}`,
+          reference_number: transferRef,
+          source_type: 'transfer_masuk',
           created_by: user.id,
           created_by_name: user.name || user.email || "Unknown User"
         })
@@ -139,9 +128,9 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
         throw new Error(`Failed to record inbound transfer: ${inboundError.message}`)
       }
       
-      // Invalidate payment queries
-      queryClient.invalidateQueries({ queryKey: ['payments'] })
-      queryClient.invalidateQueries({ queryKey: ['cashier-recap'] })
+      // Invalidate cash flow queries
+      queryClient.invalidateQueries({ queryKey: ['cashFlow'] })
+      queryClient.invalidateQueries({ queryKey: ['cashBalance'] })
       
       toast({ 
         title: "Transfer Berhasil", 

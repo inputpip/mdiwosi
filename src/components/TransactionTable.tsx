@@ -278,6 +278,51 @@ export function TransactionTable() {
       },
     },
     {
+      id: "paymentStatus",
+      header: "Status Pembayaran",
+      cell: ({ row }) => {
+        const transaction = row.original;
+        const total = transaction.total;
+        const paidAmount = transaction.paidAmount || 0;
+        
+        let statusText = "";
+        let variant: "default" | "secondary" | "destructive" | "outline" | "success" = "default";
+        
+        if (paidAmount === 0) {
+          statusText = "Belum Lunas";
+          variant = "destructive";
+        } else if (paidAmount >= total) {
+          statusText = "Lunas";
+          variant = "success";
+        } else {
+          statusText = "Sebagian";
+          variant = "secondary";
+        }
+        
+        return (
+          <div className="space-y-1">
+            <Badge variant={variant}>{statusText}</Badge>
+            <div className="text-xs text-muted-foreground">
+              Dibayar: {new Intl.NumberFormat("id-ID", {
+                style: "currency",
+                currency: "IDR",
+                minimumFractionDigits: 0,
+              }).format(paidAmount)}
+            </div>
+            {paidAmount < total && (
+              <div className="text-xs text-destructive">
+                Sisa: {new Intl.NumberFormat("id-ID", {
+                  style: "currency",
+                  currency: "IDR",
+                  minimumFractionDigits: 0,
+                }).format(total - paidAmount)}
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: "status",
       header: "Status",
       cell: ({ row }) => {
@@ -346,7 +391,21 @@ export function TransactionTable() {
   })
 
   const handleExportExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(transactions || []);
+    const exportData = (transactions || []).map(t => ({
+      'No Order': t.id,
+      'Pelanggan': t.customerName,
+      'Tgl Order': t.orderDate ? format(new Date(t.orderDate), "d MMM yyyy, HH:mm", { locale: id }) : 'N/A',
+      'Kasir': t.cashierName,
+      'Produk': t.items.map(item => item.product.name).join(", "),
+      'Total': t.total,
+      'Dibayar': t.paidAmount || 0,
+      'Sisa': t.total - (t.paidAmount || 0),
+      'Status Pembayaran': (t.paidAmount || 0) === 0 ? 'Belum Lunas' : 
+                          (t.paidAmount || 0) >= t.total ? 'Lunas' : 'Sebagian',
+      'Status Order': t.status
+    }));
+    
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Transaksi");
     XLSX.writeFile(workbook, "data-transaksi.xlsx");
@@ -355,13 +414,15 @@ export function TransactionTable() {
   const handleExportPdf = () => {
     const doc = new jsPDF();
     autoTable(doc, {
-      head: [['No. Order', 'Pelanggan', 'Tgl Order', 'Kasir', 'Total', 'Status']],
+      head: [['No. Order', 'Pelanggan', 'Tgl Order', 'Total', 'Dibayar', 'Status Bayar', 'Status Order']],
       body: (transactions || []).map(t => [
         t.id,
         t.customerName,
         t.orderDate ? format(new Date(t.orderDate), "d MMM yyyy, HH:mm", { locale: id }) : 'N/A',
-        t.cashierName,
         new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(t.total),
+        new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(t.paidAmount || 0),
+        (t.paidAmount || 0) === 0 ? 'Belum Lunas' : 
+        (t.paidAmount || 0) >= t.total ? 'Lunas' : 'Sebagian',
         t.status
       ]),
     });

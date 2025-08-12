@@ -16,7 +16,7 @@ import { Material } from "@/types/material"
 import { format, subDays, startOfDay, endOfDay, startOfMonth, isWithinInterval, eachDayOfInterval } from "date-fns"
 import { id } from "date-fns/locale/id"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
-import { Users, AlertTriangle, DollarSign, TrendingDown, Scale, Award, ShoppingCart, TrendingUp, FileText } from "lucide-react"
+import { Users, AlertTriangle, DollarSign, TrendingDown, Scale, Award, ShoppingCart, TrendingUp } from "lucide-react"
 
 export function Dashboard() {
   const { user } = useAuthContext()
@@ -201,33 +201,6 @@ export function Dashboard() {
         <Card><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Stok Kritis</CardTitle><AlertTriangle className="h-4 w-4 text-muted-foreground" /></CardHeader><CardContent><div className="text-2xl font-bold">{summaryData.criticalStockItems} item</div><p className="text-xs text-muted-foreground">Perlu segera dipesan ulang</p></CardContent></Card>
       </div>
 
-      {/* Quick Access Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Akses Cepat - Laporan Harian
-          </CardTitle>
-          <CardDescription>
-            Akses langsung ke laporan harian untuk memudahkan kasir melaporkan kas kecil
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4">
-            <Link to="/daily-report">
-              <Card className="hover:bg-muted/50 transition-colors cursor-pointer border-dashed">
-                <CardContent className="p-6 text-center">
-                  <FileText className="h-8 w-8 mx-auto mb-2 text-primary" />
-                  <h3 className="font-semibold">Laporan Harian Kas</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Summary penjualan, transfer, dan kas kecil hari ini
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">

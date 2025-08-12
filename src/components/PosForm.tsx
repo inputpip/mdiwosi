@@ -135,6 +135,25 @@ export const PosForm = () => {
     setItems(items.filter((_, i) => i !== index));
   };
 
+  const handlePrintDialogClose = (shouldNavigate: boolean = true) => {
+    setIsPrintDialogOpen(false);
+    
+    if (shouldNavigate) {
+      // Reset form
+      setSelectedCustomer(null);
+      setItems([]);
+      setDiskon(0);
+      setPaidAmount(0);
+      setPaymentAccountId('');
+      setSourceQuotationId(null);
+      setPpnEnabled(false);
+      setPpnPercentage(getDefaultPPNPercentage());
+      
+      // Navigate to transactions page
+      navigate('/transactions');
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -208,18 +227,8 @@ export const PosForm = () => {
         setSavedTransaction(savedData);
         toast({ title: "Sukses", description: "Transaksi dan pembayaran berhasil disimpan." });
         
-        // Redirect to transaction list page after successful save
-        navigate('/transactions');
-        
-        // Reset form
-        setSelectedCustomer(null);
-        setItems([]);
-        setDiskon(0);
-        setPaidAmount(0);
-        setPaymentAccountId('');
-        setSourceQuotationId(null);
-        setPpnEnabled(false);
-        setPpnPercentage(getDefaultPPNPercentage());
+        // Show print dialog instead of immediately redirecting
+        setIsPrintDialogOpen(true);
       },
       onError: (error) => {
         toast({ variant: "destructive", title: "Gagal Menyimpan", description: error.message });
@@ -231,7 +240,7 @@ export const PosForm = () => {
     <>
       <CustomerSearchDialog open={isCustomerSearchOpen} onOpenChange={setIsCustomerSearchOpen} onCustomerSelect={setSelectedCustomer} />
       <AddCustomerDialog open={isCustomerAddOpen} onOpenChange={setIsCustomerAddOpen} onCustomerAdded={setSelectedCustomer} />
-      {savedTransaction && <PrintReceiptDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen} transaction={savedTransaction} template="receipt" />}
+      {savedTransaction && <PrintReceiptDialog open={isPrintDialogOpen} onOpenChange={handlePrintDialogClose} transaction={savedTransaction} template="receipt" />}
       
       <form onSubmit={handleSubmit} className="bg-card text-card-foreground p-6 rounded-b-lg shadow-sm space-y-6">
         {sourceQuotationId && (

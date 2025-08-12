@@ -109,6 +109,39 @@ export const useTransactions = () => {
         if (quotationError) console.error("Failed to update quotation:", quotationError.message);
       }
 
+      // Record cash flow if there's a direct payment (paidAmount > 0)
+      if (newTransaction.paidAmount > 0 && newTransaction.paymentAccountId) {
+        try {
+          // Get account name for the cash flow record
+          const { data: account } = await supabase
+            .from('accounts')
+            .select('name')
+            .eq('id', newTransaction.paymentAccountId)
+            .single();
+
+          const cashFlowRecord = {
+            account_id: newTransaction.paymentAccountId,
+            transaction_type: 'income', // Use same format as pembayaran piutang
+            amount: newTransaction.paidAmount,
+            description: `Pembayaran orderan dari ${newTransaction.customerName} - Order: ${savedTransaction.id}`,
+            reference_number: `ORDER-${savedTransaction.id.slice(0, 8)}`,
+            source_type: 'pos_direct',
+            created_by: newTransaction.cashierId,
+            created_by_name: newTransaction.cashierName
+          };
+
+          const { error: cashFlowError } = await supabase
+            .from('cash_history')
+            .insert(cashFlowRecord);
+
+          if (cashFlowError) {
+            console.error('Failed to record cash flow:', cashFlowError.message);
+          }
+        } catch (error) {
+          console.error('Error recording cash flow:', error);
+        }
+      }
+
       return fromDb(savedTransaction);
     },
     onSuccess: () => {
@@ -117,6 +150,7 @@ export const useTransactions = () => {
       queryClient.invalidateQueries({ queryKey: ['quotations'] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
       queryClient.invalidateQueries({ queryKey: ['stockMovements'] })
+      queryClient.invalidateQueries({ queryKey: ['cashFlow'] })
     }
   })
 
@@ -236,15 +270,31 @@ export const useTransactions = () => {
 
   const deleteTransaction = useMutation({
     mutationFn: async (transactionId: string) => {
+      // Delete related cash_history records first
+      const { error: cashHistoryError } = await supabase
+        .from('cash_history')
+        .delete()
+        .or(`reference_number.like.%${transactionId}%,description.like.%${transactionId}%`);
+      
+      if (cashHistoryError) {
+        console.error('Failed to delete related cash history:', cashHistoryError.message);
+        // Continue anyway, don't throw
+      }
+
+      // Delete the main transaction
       const { error } = await supabase
         .from('transactions')
         .delete()
         .eq('id', transactionId);
+      
       if (error) throw new Error(error.message);
+
+      console.log(`Deleted transaction ${transactionId} and related cash history records`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['cashFlow'] });
     },
   });
 

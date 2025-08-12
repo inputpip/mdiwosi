@@ -83,13 +83,13 @@ export function PayReceivableDialog({ open, onOpenChange, transaction }: PayRece
       // Record payment in cash_history table (proper way to track cash flow)
       const paymentRecord = {
         account_id: data.paymentAccountId,
-        transaction_type: 'income', // Pembayaran piutang = income (kas masuk)
+        type: 'pemutihan_piutang', // Pembayaran piutang (sesuai dengan constraint tabel)
         amount: data.amount, // Jumlah positif karena cash bertambah
         description: `Pembayaran piutang dari ${transaction.customerName} - Order: ${transaction.id}${data.notes ? ' | ' + data.notes : ''}`,
-        reference_number: `PIUTANG-${transaction.id.slice(0, 8)}`,
-        source_type: 'receivables_payment',
-        created_by: user.id,
-        created_by_name: user.name || user.email || 'Unknown User'
+        reference_id: transaction.id,
+        reference_name: `Order: ${transaction.id}`,
+        user_id: user.id,
+        user_name: user.name || user.email || 'Unknown User'
       };
 
       // Add account_name if the column exists (for future compatibility)
@@ -134,6 +134,7 @@ export function PayReceivableDialog({ open, onOpenChange, transaction }: PayRece
       queryClient.invalidateQueries({ queryKey: ['receivables'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['cashier-recap'] });
+      queryClient.invalidateQueries({ queryKey: ['cashFlow'] });
 
       toast({ 
         title: "Sukses", 

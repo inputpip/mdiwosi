@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Transaction } from "@/types/transaction"
 import { format } from "date-fns"
 import { id } from "date-fns/locale/id"
-import { Printer, X } from "lucide-react"
+import { Printer, X, FileDown } from "lucide-react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import { useCompanySettings, CompanyInfo } from "@/hooks/useCompanySettings"
@@ -181,17 +181,102 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
     doc.save(filename);
   };
 
-  const handlePrint = () => {
+  const handleThermalPrint = () => {
+    const printWindow = window.open('', '_blank');
+    const printableArea = document.getElementById('printable-area')?.innerHTML;
+    printWindow?.document.write(`<html><head><title>Cetak Nota</title><style>body{font-family:monospace;font-size:10pt;margin:0;padding:3mm;width:78mm;} table{width:100%;border-collapse:collapse;} td,th{padding:1px;} .text-center{text-align:center;} .text-right{text-align:right;} .font-bold{font-weight:bold;} .border-y{border-top:1px dashed;border-bottom:1px dashed;} .border-b{border-bottom:1px dashed;} .py-1{padding-top:4px;padding-bottom:4px;} .mb-1{margin-bottom:4px;} .mb-2{margin-bottom:8px;} .mt-2{margin-top:8px;} .mt-3{margin-top:12px;} .mx-auto{margin-left:auto;margin-right:auto;} .max-h-12{max-height:48px;} .flex{display:flex;} .justify-between{justify-content:space-between;}</style></head><body>${printableArea}</body></html>`);
+    printWindow?.document.close();
+    printWindow?.focus();
+    printWindow?.print();
+  };
+
+  const handlePdfDownload = () => {
     if (template === 'invoice') {
       generateInvoicePdf();
     } else {
-      const printWindow = window.open('', '_blank');
-      const printableArea = document.getElementById('printable-area')?.innerHTML;
-      printWindow?.document.write(`<html><head><title>Cetak Nota</title><style>body{font-family:monospace;font-size:10pt;margin:0;padding:3mm;width:78mm;} table{width:100%;border-collapse:collapse;} td,th{padding:1px;} .text-center{text-align:center;} .text-right{text-align:right;} .font-bold{font-weight:bold;} .border-y{border-top:1px dashed;border-bottom:1px dashed;} .border-b{border-bottom:1px dashed;} .py-1{padding-top:4px;padding-bottom:4px;} .mb-1{margin-bottom:4px;} .mb-2{margin-bottom:8px;} .mt-2{margin-top:8px;} .mt-3{margin-top:12px;} .mx-auto{margin-left:auto;margin-right:auto;} .max-h-12{max-height:48px;} .flex{display:flex;} .justify-between{justify-content:space-between;}</style></head><body>${printableArea}</body></html>`);
-      printWindow?.document.close();
-      printWindow?.focus();
-      printWindow?.print();
+      generateReceiptPdf();
     }
+  };
+
+  const generateReceiptPdf = () => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [80, 200] // 80mm width thermal receipt
+    });
+
+    const orderDate = transaction.orderDate ? new Date(transaction.orderDate) : null;
+
+    // Header
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(companyInfo?.name || 'Nota Transaksi', 40, 10, { align: 'center' });
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    if (companyInfo?.address) {
+      doc.text(companyInfo.address, 40, 16, { align: 'center' });
+    }
+    if (companyInfo?.phone) {
+      doc.text(companyInfo.phone, 40, 21, { align: 'center' });
+    }
+
+    // Transaction details
+    let currentY = 30;
+    doc.setFontSize(8);
+    doc.text(`No: ${transaction.id}`, 5, currentY);
+    currentY += 4;
+    doc.text(`Tgl: ${orderDate ? format(orderDate, "dd/MM/yy HH:mm", { locale: id }) : 'N/A'}`, 5, currentY);
+    currentY += 4;
+    doc.text(`Plgn: ${transaction.customerName}`, 5, currentY);
+    currentY += 4;
+    doc.text(`Kasir: ${transaction.cashierName}`, 5, currentY);
+    currentY += 8;
+
+    // Items
+    doc.text('Item', 5, currentY);
+    doc.text('Total', 75, currentY, { align: 'right' });
+    currentY += 4;
+
+    // Line separator
+    doc.line(5, currentY, 75, currentY);
+    currentY += 4;
+
+    transaction.items.forEach((item) => {
+      doc.text(item.product.name, 5, currentY);
+      currentY += 3;
+      doc.text(`${item.quantity}x @${new Intl.NumberFormat("id-ID").format(item.price)}`, 5, currentY);
+      doc.text(new Intl.NumberFormat("id-ID").format(item.price * item.quantity), 75, currentY, { align: 'right' });
+      currentY += 5;
+    });
+
+    // Line separator
+    doc.line(5, currentY, 75, currentY);
+    currentY += 4;
+
+    // Totals
+    doc.text('Subtotal:', 5, currentY);
+    doc.text(new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.subtotal), 75, currentY, { align: 'right' });
+    currentY += 4;
+
+    if (transaction.ppnEnabled) {
+      doc.text(`PPN (${transaction.ppnPercentage}%):`, 5, currentY);
+      doc.text(new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.ppnAmount), 75, currentY, { align: 'right' });
+      currentY += 4;
+    }
+
+    // Final total
+    doc.setFont('helvetica', 'bold');
+    doc.text('Total:', 5, currentY);
+    doc.text(new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.total), 75, currentY, { align: 'right' });
+    currentY += 8;
+
+    // Thank you message
+    doc.setFont('helvetica', 'normal');
+    doc.text('Terima kasih!', 40, currentY, { align: 'center' });
+
+    // Save the PDF
+    doc.save(`nota-${transaction.id}.pdf`);
   };
 
   if (!transaction) return null;
@@ -204,7 +289,8 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
         </div>
         <DialogFooter className="p-4 border-t bg-muted/40 no-print">
           <Button variant="outline" onClick={() => onOpenChange(false)}><X className="mr-2 h-4 w-4" /> Tutup</Button>
-          <Button onClick={handlePrint}><Printer className="mr-2 h-4 w-4" /> {template === 'invoice' ? 'Simpan PDF' : 'Cetak Nota'}</Button>
+          <Button variant="outline" onClick={handlePdfDownload}><FileDown className="mr-2 h-4 w-4" /> Simpan PDF</Button>
+          <Button onClick={handleThermalPrint}><Printer className="mr-2 h-4 w-4" /> Cetak Thermal</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { EmployeeAdvance, AdvanceRepayment } from '@/types/employeeAdvance'
 import { useAccounts } from './useAccounts';
+import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
 const fromDbToApp = (dbAdvance: any): EmployeeAdvance => ({
@@ -39,6 +40,7 @@ const fromAppToDb = (appAdvance: Partial<EmployeeAdvance>) => {
 export const useEmployeeAdvances = () => {
   const queryClient = useQueryClient();
   const { updateAccountBalance } = useAccounts();
+  const { user } = useAuth();
 
   const { data: advances, isLoading, isError, error } = useQuery<EmployeeAdvance[]>({
     queryKey: ['employeeAdvances'],
@@ -69,11 +71,43 @@ export const useEmployeeAdvances = () => {
       if (error) throw new Error(error.message);
       
       updateAccountBalance.mutate({ accountId: newData.accountId, amount: -newData.amount });
+
+      // Record in cash_history for advance tracking
+      if (newData.accountId && user) {
+        try {
+          const cashFlowRecord = {
+            account_id: newData.accountId,
+            transaction_type: 'expense',
+            amount: newData.amount,
+            description: `Panjar karyawan untuk ${newData.employeeName}: ${newData.notes || 'Tidak ada keterangan'}`,
+            reference_number: `ADV-${data.id.slice(4)}`, // Remove 'adv-' prefix
+            source_type: 'employee_advance',
+            created_by: user.id,
+            created_by_name: user.name || user.email || 'Unknown User'
+          };
+
+          console.log('Recording advance in cash history:', cashFlowRecord);
+
+          const { error: cashFlowError } = await supabase
+            .from('cash_history')
+            .insert(cashFlowRecord);
+
+          if (cashFlowError) {
+            console.error('Failed to record advance in cash flow:', cashFlowError.message);
+          } else {
+            console.log('Successfully recorded advance in cash history');
+          }
+        } catch (error) {
+          console.error('Error recording advance cash flow:', error);
+        }
+      }
+
       return fromDbToApp({ ...data, advance_repayments: [] });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employeeAdvances'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['cashFlow'] });
     },
   });
 
@@ -102,6 +136,17 @@ export const useEmployeeAdvances = () => {
 
   const deleteAdvance = useMutation({
     mutationFn: async (advanceToDelete: EmployeeAdvance): Promise<void> => {
+      // First delete related cash_history records
+      const { error: cashHistoryError } = await supabase
+        .from('cash_history')
+        .delete()
+        .eq('reference_number', `ADV-${advanceToDelete.id.slice(4)}`);
+      
+      if (cashHistoryError) {
+        console.error('Failed to delete related cash history:', cashHistoryError.message);
+        // Continue anyway, don't throw
+      }
+
       // Delete associated repayments first
       await supabase.from('advance_repayments').delete().eq('advance_id', advanceToDelete.id);
       
@@ -115,6 +160,7 @@ export const useEmployeeAdvances = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employeeAdvances'] });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['cashFlow'] });
     }
   });
 

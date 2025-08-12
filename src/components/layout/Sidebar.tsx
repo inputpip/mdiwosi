@@ -27,6 +27,7 @@ import {
   PackageOpen,
   Package2,
   Shield,
+  TrendingUp,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState } from "react";
@@ -67,6 +68,7 @@ const menuItems = [
     title: "Keuangan",
     items: [
       { href: "/accounts", label: "Akun Keuangan", icon: Landmark },
+      { href: "/cash-flow", label: "Arus Kas", icon: TrendingUp },
       { href: "/receivables", label: "Piutang", icon: ReceiptText },
       { href: "/expenses", label: "Pengeluaran", icon: FileText },
       { href: "/advances", label: "Panjar Karyawan", icon: HandCoins },

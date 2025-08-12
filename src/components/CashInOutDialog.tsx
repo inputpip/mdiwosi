@@ -69,31 +69,27 @@ export function CashInOutDialog({ open, onOpenChange, type, title, description }
         amount: adjustmentAmount
       })
 
-      // Create payment record using direct insert instead of RPC
-      const { error: paymentError } = await supabase
-        .from('payments')
+      // Create cash history record
+      const { error: cashHistoryError } = await supabase
+        .from('cash_history')
         .insert({
-          payment_type: type === "in" ? "inbound" : "outbound",
-          payment_method: "cash",
-          payment_source: "manual_entry",
+          account_id: data.accountId,
+          transaction_type: type === "in" ? "income" : "expense",
           amount: data.amount,
-          partner_name: "Manual Entry",
-          partner_type: "manual",
-          payment_account_id: data.accountId,
-          payment_account_name: selectedAccount.name,
-          communication: data.description,
-          state: "posted",
+          description: data.description,
+          reference_number: `MANUAL-${Date.now()}`,
+          source_type: type === "in" ? "kas_masuk_manual" : "kas_keluar_manual",
           created_by: user.id,
           created_by_name: user.name || user.email || "Unknown User"
         })
 
-      if (paymentError) {
-        throw new Error(`Failed to record payment: ${paymentError.message}`)
+      if (cashHistoryError) {
+        throw new Error(`Failed to record cash transaction: ${cashHistoryError.message}`)
       }
       
-      // Invalidate payment queries
-      queryClient.invalidateQueries({ queryKey: ['payments'] })
-      queryClient.invalidateQueries({ queryKey: ['cashier-recap'] })
+      // Invalidate cash flow queries
+      queryClient.invalidateQueries({ queryKey: ['cashFlow'] })
+      queryClient.invalidateQueries({ queryKey: ['cashBalance'] })
       
       toast({ 
         title: "Sukses", 
