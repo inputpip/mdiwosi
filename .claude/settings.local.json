@@ -21,7 +21,12 @@
       "Bash(node:*)",
       "Bash(curl:*)",
       "Bash(npm install:*)",
-      "Bash(npm update)"
+      "Bash(npm update)",
+      "Bash(del debug_payments_issues.sql)",
+      "Bash(cat:*)",
+      "Bash(supabase:*)",
+      "Bash(psql:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }

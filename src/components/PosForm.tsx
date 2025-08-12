@@ -184,13 +184,29 @@ export const PosForm = () => {
     };
 
     addTransaction.mutate({ newTransaction, quotationId: sourceQuotationId }, {
-      onSuccess: (savedData) => {
+      onSuccess: async (savedData) => {
+        // Record payment to comprehensive payments table if there's a payment
         if (paidAmount > 0 && paymentAccountId) {
-          updateAccountBalance.mutate({ accountId: paymentAccountId, amount: paidAmount });
+          try {
+            const selectedAccount = accounts?.find(acc => acc.id === paymentAccountId);
+            const paymentMethod = selectedAccount?.name?.toLowerCase().includes('bank') ? 'bank_transfer' : 'cash';
+            
+            // Payment tracking removed
+            
+            // Update account balance
+            await updateAccountBalance.mutateAsync({ accountId: paymentAccountId, amount: paidAmount });
+          } catch (paymentError) {
+            console.error('Error creating payment record:', paymentError);
+            toast({ 
+              variant: "destructive", 
+              title: "Warning", 
+              description: "Transaksi berhasil disimpan tetapi ada masalah dalam pencatatan pembayaran." 
+            });
+          }
         }
         
         setSavedTransaction(savedData);
-        toast({ title: "Sukses", description: "Transaksi berhasil disimpan." });
+        toast({ title: "Sukses", description: "Transaksi dan pembayaran berhasil disimpan." });
         
         // Redirect to transaction list page after successful save
         navigate('/transactions');

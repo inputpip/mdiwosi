@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAccounts } from "@/hooks/useAccounts"
 import { useToast } from "./ui/use-toast"
 import { useAuth } from "@/hooks/useAuth"
-import { useCashHistory } from "@/hooks/useCashHistory"
+import { supabase } from "@/integrations/supabase/client"
+import { useQueryClient } from "@tanstack/react-query"
 import { ArrowRightLeft } from "lucide-react"
 
 const transferSchema = z.object({
@@ -35,7 +36,7 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
   const { accounts, updateAccountBalance } = useAccounts()
   const { toast } = useToast()
   const { user } = useAuth()
-  const { addCashHistory } = useCashHistory()
+  const queryClient = useQueryClient()
   
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<TransferFormData>({
     resolver: zodResolver(transferSchema),
@@ -88,31 +89,59 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
         amount: data.amount
       })
 
-      // Record cash history for source account (outflow)
-      await addCashHistory.mutateAsync({
-        accountId: data.fromAccountId,
-        accountName: fromAccount.name,
-        type: "transfer_keluar",
-        amount: -data.amount,
-        description: `Transfer ke ${toAccount.name}: ${data.description}`,
-        referenceId: data.toAccountId,
-        referenceName: toAccount.name,
-        userId: user.id,
-        userName: user.name || user.email || "Unknown"
-      })
+      // Record outbound payment for source account
+      const { error: outboundError } = await supabase
+        .from('payments')
+        .insert({
+          payment_type: "outbound",
+          payment_method: "transfer",
+          payment_source: "manual_entry",
+          amount: data.amount,
+          partner_name: `Transfer to ${toAccount.name}`,
+          partner_type: "internal",
+          payment_account_id: data.fromAccountId,
+          payment_account_name: fromAccount.name,
+          destination_account_id: data.toAccountId,
+          destination_account_name: toAccount.name,
+          reference: data.toAccountId,
+          communication: `Transfer ke ${toAccount.name}: ${data.description}`,
+          state: "posted",
+          created_by: user.id,
+          created_by_name: user.name || user.email || "Unknown User"
+        })
 
-      // Record cash history for destination account (inflow)
-      await addCashHistory.mutateAsync({
-        accountId: data.toAccountId,
-        accountName: toAccount.name,
-        type: "transfer_masuk",
-        amount: data.amount,
-        description: `Transfer dari ${fromAccount.name}: ${data.description}`,
-        referenceId: data.fromAccountId,
-        referenceName: fromAccount.name,
-        userId: user.id,
-        userName: user.name || user.email || "Unknown"
-      })
+      if (outboundError) {
+        throw new Error(`Failed to record outbound transfer: ${outboundError.message}`)
+      }
+
+      // Record inbound payment for destination account  
+      const { error: inboundError } = await supabase
+        .from('payments')
+        .insert({
+          payment_type: "inbound", 
+          payment_method: "transfer",
+          payment_source: "manual_entry",
+          amount: data.amount,
+          partner_name: `Transfer from ${fromAccount.name}`,
+          partner_type: "internal",
+          payment_account_id: data.toAccountId,
+          payment_account_name: toAccount.name,
+          destination_account_id: data.fromAccountId,
+          destination_account_name: fromAccount.name,
+          reference: data.fromAccountId,
+          communication: `Transfer dari ${fromAccount.name}: ${data.description}`,
+          state: "posted",
+          created_by: user.id,
+          created_by_name: user.name || user.email || "Unknown User"
+        })
+
+      if (inboundError) {
+        throw new Error(`Failed to record inbound transfer: ${inboundError.message}`)
+      }
+      
+      // Invalidate payment queries
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['cashier-recap'] })
       
       toast({ 
         title: "Transfer Berhasil", 

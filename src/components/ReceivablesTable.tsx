@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Transaction } from "@/types/transaction"
 import { useTransactions } from "@/hooks/useTransactions"
-import { usePaymentHistoryBatch } from "@/hooks/usePaymentHistory"
+// import { usePaymentHistoryBatch } from "@/hooks/usePaymentHistory" // Removed
 import { format } from "date-fns"
 import { id } from "date-fns/locale/id"
 import { PayReceivableDialog } from "./PayReceivableDialog"
-import { PaymentHistoryRow } from "./PaymentHistoryRow"
+// import { PaymentHistoryRow } from "./PaymentHistoryRow" // Removed
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu"
-import { MoreHorizontal, ChevronDown, ChevronRight } from "lucide-react"
+import { MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, Clock, AlertTriangle } from "lucide-react"
 import { useAuthContext } from "@/contexts/AuthContext"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog"
 import { showSuccess, showError } from "@/utils/toast"
@@ -25,14 +25,18 @@ export function ReceivablesTable() {
   const [expandedRows, setExpandedRows] = React.useState<Set<string>>(new Set())
 
   const receivables = React.useMemo(() => {
-    return transactions?.filter(t => t.paymentStatus === 'Belum Lunas') || []
+    return transactions?.filter(t => 
+      t.paymentStatus === 'Belum Lunas' || t.paymentStatus === 'Partial'
+    ) || []
   }, [transactions])
 
   const receivableIds = React.useMemo(() => {
     return receivables.map(r => r.id)
   }, [receivables])
 
-  const { paymentHistories, isLoading: isLoadingHistory } = usePaymentHistoryBatch(receivableIds)
+  // const { paymentHistories, isLoading: isLoadingHistory } = usePaymentHistoryBatch(receivableIds) // Removed
+  const paymentHistories: any[] = [];
+  const isLoadingHistory = false;
 
   const handlePayClick = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
@@ -98,6 +102,42 @@ export function ReceivablesTable() {
     { accessorKey: "orderDate", header: "Tgl Order", cell: ({ row }) => format(new Date(row.getValue("orderDate")), "d MMM yyyy", { locale: id }) },
     { accessorKey: "total", header: "Total Tagihan", cell: ({ row }) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(row.getValue("total")) },
     { accessorKey: "paidAmount", header: "Telah Dibayar", cell: ({ row }) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(row.getValue("paidAmount")) },
+    {
+      id: "paymentStatus",
+      header: "Status Pembayaran",
+      cell: ({ row }) => {
+        const total = row.original.total
+        const paid = row.original.paidAmount
+        let status: string
+        let statusLabel: string
+        let statusColor: string
+        let statusIcon: React.ReactNode
+        
+        if (paid === 0) {
+          status = 'unpaid'
+          statusLabel = 'Belum Bayar'
+          statusColor = 'bg-red-100 text-red-800'
+          statusIcon = <AlertTriangle className="h-3 w-3" />
+        } else if (paid >= total) {
+          status = 'paid'
+          statusLabel = 'Lunas'
+          statusColor = 'bg-green-100 text-green-800'
+          statusIcon = <CheckCircle className="h-3 w-3" />
+        } else {
+          status = 'partial'
+          statusLabel = 'Bayar Partial'
+          statusColor = 'bg-yellow-100 text-yellow-800'
+          statusIcon = <Clock className="h-3 w-3" />
+        }
+        
+        return (
+          <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}>
+            {statusIcon}
+            {statusLabel}
+          </div>
+        )
+      }
+    },
     {
       id: "remainingAmount",
       header: "Sisa Tagihan",
@@ -177,12 +217,10 @@ export function ReceivablesTable() {
                     </TableRow>
                     {expandedRows.has(row.original.id) && (
                       <TableRow>
-                        <TableCell colSpan={columns.length} className="p-0">
-                          <PaymentHistoryRow
-                            transactionId={row.original.id}
-                            paymentHistory={paymentHistories[row.original.id] || []}
-                            isLoading={isLoadingHistory}
-                          />
+                        <TableCell colSpan={columns.length} className="p-4 bg-muted/30">
+                          <div className="text-sm text-muted-foreground">
+                            Riwayat pembayaran tidak tersedia - fitur telah dihapus
+                          </div>
                         </TableCell>
                       </TableRow>
                     )}

@@ -8,10 +8,12 @@ export const useCustomers = () => {
   const { data: customers, isLoading } = useQuery<Customer[]>({
     queryKey: ['customers'],
     queryFn: async () => {
+      console.log('Fetching customers data...');
       const { data, error } = await supabase
         .from('customers')
         .select('*')
         .order('name', { ascending: true });
+      console.log('Customers query result:', { data, error, count: data?.length });
       if (error) throw new Error(error.message);
       return data || [];
     }

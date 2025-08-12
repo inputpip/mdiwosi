@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAccounts } from "@/hooks/useAccounts"
 import { useToast } from "./ui/use-toast"
 import { useAuth } from "@/hooks/useAuth"
-import { useCashHistory } from "@/hooks/useCashHistory"
+import { supabase } from "@/integrations/supabase/client"
+import { useQueryClient } from "@tanstack/react-query"
 import { TrendingUp, TrendingDown } from "lucide-react"
 
 const cashTransactionSchema = z.object({
@@ -34,7 +35,7 @@ export function CashInOutDialog({ open, onOpenChange, type, title, description }
   const { accounts, updateAccountBalance } = useAccounts()
   const { toast } = useToast()
   const { user } = useAuth()
-  const { addCashHistory } = useCashHistory()
+  const queryClient = useQueryClient()
   
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<CashTransactionFormData>({
     resolver: zodResolver(cashTransactionSchema),
@@ -68,16 +69,31 @@ export function CashInOutDialog({ open, onOpenChange, type, title, description }
         amount: adjustmentAmount
       })
 
-      // Record cash history
-      await addCashHistory.mutateAsync({
-        accountId: data.accountId,
-        accountName: selectedAccount.name,
-        type: type === "in" ? "kas_masuk_manual" : "kas_keluar_manual",
-        amount: adjustmentAmount,
-        description: data.description,
-        userId: user.id,
-        userName: user.name || user.email || "Unknown"
-      })
+      // Create payment record using direct insert instead of RPC
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          payment_type: type === "in" ? "inbound" : "outbound",
+          payment_method: "cash",
+          payment_source: "manual_entry",
+          amount: data.amount,
+          partner_name: "Manual Entry",
+          partner_type: "manual",
+          payment_account_id: data.accountId,
+          payment_account_name: selectedAccount.name,
+          communication: data.description,
+          state: "posted",
+          created_by: user.id,
+          created_by_name: user.name || user.email || "Unknown User"
+        })
+
+      if (paymentError) {
+        throw new Error(`Failed to record payment: ${paymentError.message}`)
+      }
+      
+      // Invalidate payment queries
+      queryClient.invalidateQueries({ queryKey: ['payments'] })
+      queryClient.invalidateQueries({ queryKey: ['cashier-recap'] })
       
       toast({ 
         title: "Sukses", 

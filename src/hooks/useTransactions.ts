@@ -121,15 +121,38 @@ export const useTransactions = () => {
   })
 
   const payReceivable = useMutation({
-    mutationFn: async ({ transactionId, amount }: { transactionId: string, amount: number }): Promise<void> => {
-      const { error } = await supabase.rpc('pay_receivable', {
+    mutationFn: async ({ 
+      transactionId, 
+      amount, 
+      accountId,
+      accountName,
+      notes,
+      recordedBy,
+      recordedByName 
+    }: { 
+      transactionId: string; 
+      amount: number;
+      accountId?: string;
+      accountName?: string;
+      notes?: string;
+      recordedBy?: string;
+      recordedByName?: string;
+    }): Promise<void> => {
+      const { error } = await supabase.rpc('pay_receivable_with_history', {
         p_transaction_id: transactionId,
-        p_amount: amount
+        p_amount: amount,
+        p_account_id: accountId,
+        p_account_name: accountName,
+        p_notes: notes,
+        p_recorded_by: recordedBy,
+        p_recorded_by_name: recordedByName
       });
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['paymentHistory'] });
+      queryClient.invalidateQueries({ queryKey: ['paymentHistoryBatch'] });
     }
   });
 

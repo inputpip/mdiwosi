@@ -41,7 +41,6 @@ const RolePermissionPage = lazy(() => import("@/pages/RolePermissionPage"));
 const ProductAnalyticsDebugPage = lazy(() => import("@/pages/ProductAnalyticsDebugPage"));
 const MaterialMovementReportPage = lazy(() => import("@/pages/MaterialMovementReportPage"));
 const ServiceMaterialReportPage = lazy(() => import("@/pages/ServiceMaterialReportPage"));
-const FinancialReportsPage = lazy(() => import("@/pages/FinancialReportsPage"));
 
 function App() {
   // Handle chunk loading errors
@@ -98,7 +97,6 @@ function App() {
                   <Route path="/debug/product-analytics" element={<ProductAnalyticsDebugPage />} />
                   <Route path="/material-movements" element={<MaterialMovementReportPage />} />
                   <Route path="/service-material-report" element={<ServiceMaterialReportPage />} />
-                  <Route path="/laporan-keuangan" element={<FinancialReportsPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
               )}

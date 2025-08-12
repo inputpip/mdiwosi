@@ -165,15 +165,20 @@ export function CustomerTable() {
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-4">
-        <Input
-          placeholder="Cari berdasarkan nama pelanggan..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
-          onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
+      <div className="flex items-center justify-between py-4">
+        <div className="flex items-center gap-4">
+          <Input
+            placeholder="Cari berdasarkan nama pelanggan..."
+            value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+            onChange={(event) =>
+              table.getColumn("name")?.setFilterValue(event.target.value)
+            }
+            className="max-w-sm"
+          />
+          <div className="text-sm text-muted-foreground">
+            Total: {customers?.length || 0} pelanggan
+          </div>
+        </div>
       </div>
       <div className="rounded-md border">
         <Table>
@@ -218,6 +223,30 @@ export function CustomerTable() {
             )}
           </TableBody>
         </Table>
+      </div>
+      <div className="flex items-center justify-between space-x-2 py-4">
+        <div className="text-sm text-muted-foreground">
+          Halaman {table.getState().pagination.pageIndex + 1} dari{" "}
+          {table.getPageCount()} ({table.getRowModel().rows.length} dari {customers?.length || 0} ditampilkan)
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Sebelumnya
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanNextPage()}
+          >
+            Selanjutnya
+          </Button>
+        </div>
       </div>
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
