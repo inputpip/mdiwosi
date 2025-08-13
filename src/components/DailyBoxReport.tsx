@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-// import { useDailyReport } from "@/hooks/useFinancialReports" // Removed
+import { useDailyReport } from "@/hooks/useDailyReport"
 import { CalendarDays, Printer, Download, TrendingUp, TrendingDown, DollarSign, Clock } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { format } from "date-fns"
@@ -15,9 +15,7 @@ import { useAuth } from "@/hooks/useAuth"
 
 export function DailyBoxReport() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-  // const { data: dailyReport, isLoading } = useDailyReport(selectedDate) // Removed
-  const dailyReport = null;
-  const isLoading = false;
+  const { data: dailyReport, isLoading } = useDailyReport(selectedDate)
   const { user } = useAuth()
 
   const handlePrint = () => {
