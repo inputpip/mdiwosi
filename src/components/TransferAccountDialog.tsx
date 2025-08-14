@@ -97,7 +97,7 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
         .from('cash_history')
         .insert({
           account_id: data.fromAccountId,
-          transaction_type: 'transfer', // Special type for transfers
+          transaction_type: 'expense', // Transfer keluar adalah expense
           amount: data.amount,
           description: `Transfer ke ${toAccount.name}: ${data.description}`,
           reference_number: transferRef,
@@ -115,7 +115,7 @@ export function TransferAccountDialog({ open, onOpenChange }: TransferAccountDia
         .from('cash_history')
         .insert({
           account_id: data.toAccountId,
-          transaction_type: 'transfer', // Special type for transfers
+          transaction_type: 'income', // Transfer masuk adalah income
           amount: data.amount,
           description: `Transfer dari ${fromAccount.name}: ${data.description}`,
           reference_number: transferRef,
