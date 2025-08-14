@@ -77,7 +77,7 @@ export const useCashBalance = () => {
         // Only process today's transactions for income/expense calculation
         if (isToday) {
           // Skip transfers in total calculation (they don't change total cash, only move between accounts)
-          if (record.transaction_type === 'transfer') {
+          if (record.source_type === 'transfer_masuk' || record.source_type === 'transfer_keluar') {
             // Still update per-account data for transfers
             if (record.account_id && accountBalances.has(record.account_id)) {
               const current = accountBalances.get(record.account_id);

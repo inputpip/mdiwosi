@@ -54,7 +54,7 @@ import { MoreHorizontal, Trash2 } from "lucide-react"
 
 const getTypeVariant = (item: CashHistory) => {
   // Handle transfers with special color
-  if (item.transaction_type === 'transfer') {
+  if (item.source_type === 'transfer_masuk' || item.source_type === 'transfer_keluar') {
     return 'secondary'; // Different color for transfers
   }
 
@@ -88,13 +88,10 @@ const getTypeVariant = (item: CashHistory) => {
 
 const getTypeLabel = (item: CashHistory) => {
   // Handle transfers first
-  if (item.transaction_type === 'transfer') {
-    if (item.source_type === 'transfer_masuk') {
-      return 'Transfer Masuk';
-    } else if (item.source_type === 'transfer_keluar') {
-      return 'Transfer Keluar';
-    }
-    return 'Transfer';
+  if (item.source_type === 'transfer_masuk') {
+    return 'Transfer Masuk';
+  } else if (item.source_type === 'transfer_keluar') {
+    return 'Transfer Keluar';
   }
 
   // Handle new format with 'type' field
@@ -146,17 +143,12 @@ const getTypeLabel = (item: CashHistory) => {
 }
 
 const isIncomeType = (item: CashHistory) => {
-  // Transfers are displayed based on their direction but don't affect total income/expense
-  if (item.transaction_type === 'transfer') {
-    return item.source_type === 'transfer_masuk';
-  }
-
   // Handle new format with 'type' field
   if (item.type) {
     return ['orderan', 'kas_masuk_manual', 'panjar_pelunasan', 'pemutihan_piutang'].includes(item.type);
   }
   
-  // Handle old format with 'transaction_type' field
+  // Handle format with 'transaction_type' field
   if (item.transaction_type) {
     return item.transaction_type === 'income';
   }
@@ -196,7 +188,7 @@ export function CashFlowTable({ data, isLoading }: CashFlowTableProps) {
 
         let newBalance;
         
-        if (selectedRecord.transaction_type === 'transfer') {
+        if (selectedRecord.source_type === 'transfer_masuk' || selectedRecord.source_type === 'transfer_keluar') {
           // For transfers, reverse the direction
           if (selectedRecord.source_type === 'transfer_masuk') {
             // This was money coming in, so subtract it back
@@ -444,8 +436,7 @@ export function CashFlowTable({ data, isLoading }: CashFlowTableProps) {
       .filter(item => {
         if (isIncomeType(item)) {
           // Exclude only internal transfers (transfer antar kas)
-          if (item.transaction_type === 'transfer' && 
-              (item.source_type === 'transfer_masuk' || item.source_type === 'transfer_keluar')) {
+          if (item.source_type === 'transfer_masuk' || item.source_type === 'transfer_keluar') {
             return false;
           }
           return true;
@@ -458,8 +449,7 @@ export function CashFlowTable({ data, isLoading }: CashFlowTableProps) {
       .filter(item => {
         if (!isIncomeType(item)) {
           // Exclude only internal transfers (transfer antar kas)
-          if (item.transaction_type === 'transfer' && 
-              (item.source_type === 'transfer_masuk' || item.source_type === 'transfer_keluar')) {
+          if (item.source_type === 'transfer_masuk' || item.source_type === 'transfer_keluar') {
             return false;
           }
           return true;

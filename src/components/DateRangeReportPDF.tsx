@@ -23,8 +23,11 @@ interface DateRangeReportPDFProps {
 // Helper function to determine if record is income
 const isIncomeType = (item: CashHistory) => {
   // Transfers are displayed based on their direction but don't affect total income/expense
-  if (item.transaction_type === 'transfer') {
-    return item.source_type === 'transfer_masuk';
+  if (item.source_type === 'transfer_masuk') {
+    return true;
+  }
+  if (item.source_type === 'transfer_keluar') {
+    return false;
   }
   
   if (item.type) {
@@ -39,13 +42,10 @@ const isIncomeType = (item: CashHistory) => {
 // Helper function to get transaction type label
 const getTypeLabel = (item: CashHistory) => {
   // Handle transfers first
-  if (item.transaction_type === 'transfer') {
-    if (item.source_type === 'transfer_masuk') {
-      return 'Transfer Masuk';
-    } else if (item.source_type === 'transfer_keluar') {
-      return 'Transfer Keluar';
-    }
-    return 'Transfer';
+  if (item.source_type === 'transfer_masuk') {
+    return 'Transfer Masuk';
+  } else if (item.source_type === 'transfer_keluar') {
+    return 'Transfer Keluar';
   }
 
   if (item.type) {
@@ -134,7 +134,7 @@ export function DateRangeReportPDF({ cashHistory }: DateRangeReportPDFProps) {
     // Calculate for selected date
     dateTransactions.forEach(item => {
       // Skip transfers in total calculation (they don't change total cash, only move between accounts)
-      if (item.transaction_type === 'transfer') {
+      if (item.source_type === 'transfer_masuk' || item.source_type === 'transfer_keluar') {
         // Still update per-account data for transfers
         if (item.account_id && accountBalances.has(item.account_id)) {
           const current = accountBalances.get(item.account_id);
