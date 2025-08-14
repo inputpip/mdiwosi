@@ -83,50 +83,22 @@ export function PayReceivableDialog({ open, onOpenChange, transaction }: PayRece
       // Record payment in cash_history table (proper way to track cash flow)
       const paymentRecord = {
         account_id: data.paymentAccountId,
-        type: 'pemutihan_piutang', // Pembayaran piutang (sesuai dengan constraint tabel)
+        transaction_type: 'income', // Pembayaran piutang adalah income
         amount: data.amount, // Jumlah positif karena cash bertambah
         description: `Pembayaran piutang dari ${transaction.customerName} - Order: ${transaction.id}${data.notes ? ' | ' + data.notes : ''}`,
-        reference_id: transaction.id,
-        reference_name: `Order: ${transaction.id}`,
-        user_id: user.id,
-        user_name: user.name || user.email || 'Unknown User'
+        reference_number: transaction.id,
+        source_type: 'receivable_payment',
+        created_by: user.id,
+        created_by_name: user.name || user.email || 'Unknown User'
       };
 
-      // Add account_name if the column exists (for future compatibility)
-      if (selectedAccount?.name) {
-        try {
-          const { error: paymentRecordError } = await supabase
-            .from('cash_history')
-            .insert({
-              ...paymentRecord,
-              account_name: selectedAccount.name
-            });
+      // Insert payment record to cash_history
+      const { error: paymentRecordError } = await supabase
+        .from('cash_history')
+        .insert(paymentRecord);
 
-          if (paymentRecordError) {
-            // If account_name column doesn't exist, try without it
-            if (paymentRecordError.code === 'PGRST204' || paymentRecordError.message.includes('account_name')) {
-              const { error: fallbackError } = await supabase
-                .from('cash_history')
-                .insert(paymentRecord);
-              
-              if (fallbackError) {
-                throw new Error(`Failed to record payment: ${fallbackError.message}`);
-              }
-            } else {
-              throw new Error(`Failed to record payment: ${paymentRecordError.message}`);
-            }
-          }
-        } catch (err) {
-          throw new Error(`Failed to record payment: ${err.message}`);
-        }
-      } else {
-        const { error: paymentRecordError } = await supabase
-          .from('cash_history')
-          .insert(paymentRecord);
-
-        if (paymentRecordError) {
-          throw new Error(`Failed to record payment: ${paymentRecordError.message}`);
-        }
+      if (paymentRecordError) {
+        throw new Error(`Failed to record payment: ${paymentRecordError.message}`);
       }
 
       // Invalidate relevant queries
