@@ -83,7 +83,8 @@ export const useEmployeeAdvances = () => {
             reference_number: `ADV-${data.id.slice(4)}`, // Remove 'adv-' prefix
             source_type: 'employee_advance',
             created_by: user.id,
-            created_by_name: user.name || user.email || 'Unknown User'
+            created_by_name: user.name || user.email || 'Unknown User',
+            date: newData.date // gunakan tanggal input panjar
           };
 
           console.log('Recording advance in cash history:', cashFlowRecord);

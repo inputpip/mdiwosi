@@ -9,10 +9,12 @@ import { useToast } from "@/components/ui/use-toast"
 import { Upload, Image as ImageIcon, MapPin } from 'lucide-react'
 import { useCompanySettings } from '@/hooks/useCompanySettings'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAuth } from '@/hooks/useAuth'
 
 export default function SettingsPage() {
   const { settings, isLoading, updateSettings } = useCompanySettings();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [localInfo, setLocalInfo] = useState({ name: '', address: '', phone: '', logo: '', latitude: null as number | null, longitude: null as number | null, attendanceRadius: 50 as number | null });
 
   useEffect(() => {
@@ -72,6 +74,10 @@ export default function SettingsPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (user?.role !== 'owner') {
+      toast({ variant: "destructive", title: "Akses Ditolak", description: "Hanya Owner yang dapat mengubah info perusahaan." });
+      return;
+    }
     updateSettings.mutate(localInfo as any, {
       onSuccess: () => {
         toast({ title: "Sukses", description: "Informasi perusahaan berhasil diperbarui." });

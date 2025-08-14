@@ -118,7 +118,13 @@ const InvoiceTemplate = ({ transaction, companyInfo }: { transaction: Transactio
           <div className="flex justify-between font-bold text-lg border-t-2 border-gray-200 pt-2 text-gray-900"><span>TOTAL:</span><span>{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.total)}</span></div>
         </div>
       </div>
-      <footer className="text-center text-xs text-gray-400 mt-16 pt-4 border-t border-gray-200"><p>Terima kasih atas kepercayaan Anda.</p></footer>
+      <footer className="text-center text-xs text-gray-400 mt-16 pt-4 border-t border-gray-200">
+        <div className="flex flex-col items-center gap-2">
+          <span className="font-bold text-gray-700">Hormat Kami</span>
+          <span className="font-semibold text-gray-800">{transaction.cashierName}</span>
+        </div>
+        <p className="mt-4">Terima kasih atas kepercayaan Anda.</p>
+      </footer>
     </div>
   )
 }
@@ -133,50 +139,57 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
     const pageWidth = doc.internal.pageSize.width;
     const margin = 15;
 
+    const logoWidth = 40;
+    const logoHeight = 16;
     if (companyInfo?.logo) {
-      try { doc.addImage(companyInfo.logo, 'PNG', margin, 12, 30, 12); } catch (e) { console.error(e); }
+      try {
+        doc.addImage(companyInfo.logo, 'PNG', margin, 12, logoWidth, logoHeight, undefined, 'FAST');
+      } catch (e) { console.error(e); }
     }
-    doc.setFontSize(16).setFont("helvetica", "bold").text(companyInfo?.name || '', margin, 30);
-    doc.setFontSize(9).setFont("helvetica", "normal").text(companyInfo?.address || '', margin, 35).text(companyInfo?.phone || '', margin, 40);
-    doc.setDrawColor(200).line(margin, 45, pageWidth - margin, 45);
-    doc.setFontSize(20).setFont("helvetica", "bold").setTextColor(150).text("INVOICE", pageWidth - margin, 25, { align: 'right' });
+    doc.setFontSize(18).setFont("helvetica", "bold").text(companyInfo?.name || '', margin, 32);
+    doc.setFontSize(10).setFont("helvetica", "normal").text(companyInfo?.address || '', margin, 38).text(companyInfo?.phone || '', margin, 43);
+    doc.setDrawColor(200).line(margin, 48, pageWidth - margin, 48);
+    doc.setFontSize(22).setFont("helvetica", "bold").setTextColor(150).text("INVOICE", pageWidth - margin, 32, { align: 'right' });
     const orderDate = transaction.orderDate ? new Date(transaction.orderDate) : new Date();
-    doc.setFontSize(10).setTextColor(0).text(`No: ${transaction.id}`, pageWidth - margin, 32, { align: 'right' }).text(`Tanggal: ${format(orderDate, "d MMMM yyyy", { locale: id })}`, pageWidth - margin, 37, { align: 'right' });
-    let y = 60;
-    doc.setFontSize(9).setTextColor(100).text("DITAGIHKAN KEPADA:", margin, y);
-    doc.setFontSize(11).setFont("helvetica", "bold").setTextColor(0).text(transaction.customerName, margin, y + 5);
-    y += 15;
+    doc.setFontSize(11).setTextColor(0).text(`No: ${transaction.id}`, pageWidth - margin, 38, { align: 'right' }).text(`Tanggal: ${format(orderDate, "d MMMM yyyy", { locale: id })}`, pageWidth - margin, 43, { align: 'right' });
+    let y = 55;
+    doc.setFontSize(10).setTextColor(100).text("DITAGIHKAN KEPADA:", margin, y);
+    doc.setFontSize(12).setFont("helvetica", "bold").setTextColor(0).text(transaction.customerName, margin, y + 6);
+    y += 16;
     const tableData = transaction.items.map(item => [item.product.name, item.quantity, new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(item.price), new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(item.price * item.quantity)]);
     autoTable(doc, {
       startY: y,
       head: [['Deskripsi', 'Jumlah', 'Harga Satuan', 'Total']],
       body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [240, 240, 240], textColor: [50, 50, 50], fontStyle: 'bold' },
+      theme: 'plain',
+      headStyles: { fillColor: [240, 240, 240], textColor: [50, 50, 50], fontStyle: 'bold', fontSize: 10 },
+      bodyStyles: { fontSize: 10 },
       columnStyles: { 0: { cellWidth: 80 }, 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
       didDrawPage: (data) => { doc.setFontSize(8).setTextColor(150).text(`Halaman ${data.pageNumber}`, pageWidth / 2, pageHeight - 10, { align: 'center' }); }
     });
     const finalY = (doc as any).lastAutoTable.finalY;
     let summaryY = finalY + 10;
-    
-    // Subtotal
     doc.setFontSize(10).setFont("helvetica", "normal").text("Subtotal:", 140, summaryY);
     doc.text(new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.subtotal), pageWidth - margin, summaryY, { align: 'right' });
     summaryY += 5;
-    
-    // PPN if enabled
     if (transaction.ppnEnabled) {
       doc.text(`PPN (${transaction.ppnPercentage}%):`, 140, summaryY);
       doc.text(new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.ppnAmount), pageWidth - margin, summaryY, { align: 'right' });
       summaryY += 5;
     }
-    
-    // Total
     doc.setDrawColor(200).line(140, summaryY, pageWidth - margin, summaryY);
     summaryY += 7;
     doc.setFontSize(12).setFont("helvetica", "bold").text("TOTAL:", 140, summaryY);
     doc.text(new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.total), pageWidth - margin, summaryY, { align: 'right' });
-    
+    // Signature & Thank you
+    let signatureY = summaryY + 25;
+    doc.setFontSize(12).setFont("helvetica", "normal");
+    doc.text("Hormat Kami", margin, signatureY);
+    doc.setFontSize(10).setFont("helvetica", "bold");
+    doc.text((transaction.cashierName || ""), margin, signatureY + 8);
+    doc.setFontSize(10).setFont("helvetica", "normal");
+    doc.text("Terima kasih atas kepercayaan Anda.", margin, signatureY + 20);
+
     const filename = `MDIInvoice-${transaction.id}-${format(new Date(), 'yyyyMMdd-HHmmss')}.pdf`;
     doc.save(filename);
   };
@@ -185,6 +198,54 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
     const printWindow = window.open('', '_blank');
     const printableArea = document.getElementById('printable-area')?.innerHTML;
     printWindow?.document.write(`<html><head><title>Cetak Nota</title><style>body{font-family:monospace;font-size:10pt;margin:0;padding:3mm;width:78mm;} table{width:100%;border-collapse:collapse;} td,th{padding:1px;} .text-center{text-align:center;} .text-right{text-align:right;} .font-bold{font-weight:bold;} .border-y{border-top:1px dashed;border-bottom:1px dashed;} .border-b{border-bottom:1px dashed;} .py-1{padding-top:4px;padding-bottom:4px;} .mb-1{margin-bottom:4px;} .mb-2{margin-bottom:8px;} .mt-2{margin-top:8px;} .mt-3{margin-top:12px;} .mx-auto{margin-left:auto;margin-right:auto;} .max-h-12{max-height:48px;} .flex{display:flex;} .justify-between{justify-content:space-between;}</style></head><body>${printableArea}</body></html>`);
+    printWindow?.document.close();
+    printWindow?.focus();
+    printWindow?.print();
+  };
+
+  // Fungsi cetak Dot Matrix
+  const handleDotMatrixPrint = () => {
+    const printWindow = window.open('', '_blank');
+    const printableArea = document.getElementById('printable-area')?.innerHTML;
+    printWindow?.document.write(`
+      <html>
+        <head>
+          <title>Cetak Dot Matrix</title>
+          <style>
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 10pt;
+              margin: 0;
+              padding: 10mm;
+              width: 210mm;
+              background: #fff;
+            }
+            table { width: 100%; border-collapse: collapse; }
+            td, th { padding: 2px; }
+            .text-center { text-align: center; }
+            .text-right { text-align: right; }
+            .font-bold { font-weight: bold; }
+            .border-y { border-top: 1px dashed; border-bottom: 1px dashed; }
+            .border-b { border-bottom: 1px dashed; }
+            .py-1 { padding-top: 4px; padding-bottom: 4px; }
+            .mb-1 { margin-bottom: 4px; }
+            .mb-2 { margin-bottom: 8px; }
+            .mt-2 { margin-top: 8px; }
+            .mt-3 { margin-top: 12px; }
+            .mx-auto { margin-left: auto; margin-right: auto; }
+            .max-h-12 { max-height: 48px; }
+            .flex { display: flex; }
+            .justify-between { justify-content: space-between; }
+            @media print {
+              body { width: 210mm; }
+            }
+          </style>
+        </head>
+        <body>
+          ${printableArea}
+        </body>
+      </html>
+    `);
     printWindow?.document.close();
     printWindow?.focus();
     printWindow?.print();
@@ -199,6 +260,7 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
   };
 
   const generateReceiptPdf = () => {
+    if (!transaction) return;
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -290,7 +352,7 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
         <DialogFooter className="p-4 border-t bg-muted/40 no-print">
           <Button variant="outline" onClick={() => onOpenChange(false)}><X className="mr-2 h-4 w-4" /> Tutup</Button>
           <Button variant="outline" onClick={handlePdfDownload}><FileDown className="mr-2 h-4 w-4" /> Simpan PDF</Button>
-          <Button onClick={handleThermalPrint}><Printer className="mr-2 h-4 w-4" /> Cetak Thermal</Button>
+          <Button onClick={handleDotMatrixPrint}><Printer className="mr-2 h-4 w-4" /> Cetak Dot Matrix</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

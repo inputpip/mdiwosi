@@ -106,10 +106,12 @@ export function EmployeeAdvanceManagement() {
     });
   };
 
-  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner';
+  const isAdminOrOwnerOrCashier = user?.role === 'admin' || user?.role === 'owner' || user?.role === 'cashier';
   const isOwner = user?.role === 'owner';
 
-  const groupedAdvances = advances?.reduce((groups, advance) => {
+  // Filter hanya panjar yang belum lunas
+  const advancesUnpaid = advances?.filter(adv => adv.remainingAmount > 0) || [];
+  const groupedAdvances = advancesUnpaid.reduce((groups, advance) => {
     const employeeName = advance.employeeName;
     if (!groups[employeeName]) {
       groups[employeeName] = [];
@@ -142,11 +144,11 @@ export function EmployeeAdvanceManagement() {
     <div className="space-y-6">
       <RepayAdvanceDialog open={isRepayDialogOpen} onOpenChange={setIsRepayDialogOpen} advance={selectedAdvance} />
 
-      {isAdminOrOwner && (
+      {isAdminOrOwnerOrCashier && (
         <Card>
           <CardHeader>
             <CardTitle>Beri Panjar Karyawan</CardTitle>
-            <CardDescription>Fitur ini hanya untuk Owner/Admin. Catat uang muka yang diberikan kepada karyawan.</CardDescription>
+            <CardDescription>Fitur ini untuk Owner/Admin/Kasir. Catat uang muka yang diberikan kepada karyawan.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onAddAdvanceSubmit)} className="space-y-4">

@@ -51,6 +51,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal, Trash2 } from "lucide-react"
+import { TransferAccountDialog } from "./TransferAccountDialog"
 
 const getTypeVariant = (item: CashHistory) => {
   // Handle transfers with special color
@@ -166,6 +167,7 @@ export function CashFlowTable({ data, isLoading }: CashFlowTableProps) {
   const { toast } = useToast();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedRecord, setSelectedRecord] = React.useState<CashHistory | null>(null);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = React.useState(false);
 
   const handleDeleteCashHistory = async () => {
     if (!selectedRecord) return;
@@ -467,6 +469,7 @@ export function CashFlowTable({ data, isLoading }: CashFlowTableProps) {
 
   return (
     <div className="w-full space-y-4">
+      <TransferAccountDialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen} />
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -551,6 +554,9 @@ export function CashFlowTable({ data, isLoading }: CashFlowTableProps) {
           </Button>
           <Button variant="outline" onClick={handleExportPdf}>
             <FileDown className="mr-2 h-4 w-4" /> Ekspor PDF
+          </Button>
+          <Button variant="outline" className="text-blue-600 border-blue-600 hover:bg-blue-50" onClick={() => setIsTransferDialogOpen(true)}>
+            <MoreHorizontal className="mr-2 h-4 w-4" /> Transfer Antar Kas
           </Button>
         </div>
       </div>

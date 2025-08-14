@@ -106,7 +106,7 @@ export function DateRangeReportPDF({ cashHistory }: DateRangeReportPDFProps) {
 
     // Filter transactions for selected date
     const dateTransactions = cashHistory.filter(item => {
-      const itemDate = new Date(item.created_at);
+      const itemDate = new Date(item.date || item.created_at);
       return itemDate >= dateStart && itemDate < dateEnd;
     });
 
