@@ -257,61 +257,92 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
 
     const orderDate = transaction.orderDate ? new Date(transaction.orderDate) : null;
     
-    // Format teks untuk printer thermal 80mm agar mirip preview
+    // Format teks untuk printer thermal 80mm sesuai template preview
     let receiptText = '';
+    
+    // Header - exactly like preview
     receiptText += '\x1B\x40'; // ESC @ (Initialize printer)
-    // Header
     receiptText += '\x1B\x61\x01'; // Center alignment
-    receiptText += (companyInfo?.logo ? '[LOGO]\n' : ''); // Logo placeholder
     receiptText += (companyInfo?.name || 'Nota Transaksi') + '\n';
-    if (companyInfo?.address) receiptText += companyInfo.address + '\n';
-    if (companyInfo?.phone) receiptText += companyInfo.phone + '\n';
+    if (companyInfo?.address) {
+      receiptText += companyInfo.address + '\n';
+    }
+    if (companyInfo?.phone) {
+      receiptText += companyInfo.phone + '\n';
+    }
     receiptText += '\x1B\x61\x00'; // Left alignment
-    receiptText += '\n';
-    // Info transaksi
+    
+    // Transaction info section - with border
+    receiptText += '--------------------------------\n';
     receiptText += `No: ${transaction.id}\n`;
     receiptText += `Tgl: ${orderDate ? format(orderDate, "dd/MM/yy HH:mm", { locale: id }) : 'N/A'}\n`;
     receiptText += `Plgn: ${transaction.customerName}\n`;
     receiptText += `Kasir: ${transaction.cashierName}\n`;
     receiptText += '--------------------------------\n';
-    // Tabel item
-    receiptText += 'Item           Qty@Harga   Total\n';
+    
+    // Items header - exactly like preview
+    receiptText += 'Item                        Total\n';
     receiptText += '--------------------------------\n';
+    
+    // Items - format like preview
     transaction.items.forEach((item) => {
-      // Nama produk
-      let itemName = item.product.name;
-      if (itemName.length > 14) itemName = itemName.substring(0, 14) + '...';
-      // Qty dan harga
-      const qtyPrice = `${item.quantity}x@${new Intl.NumberFormat("id-ID").format(item.price)}`;
-      const total = new Intl.NumberFormat("id-ID").format(item.price * item.quantity);
-      // Format baris item
-      // |Nama         |Qty@Harga |Total|
-      const line = itemName.padEnd(15) + qtyPrice.padEnd(11) + total.padStart(6);
-      receiptText += line + '\n';
+      // First line: product name
+      receiptText += item.product.name + '\n';
+      
+      // Second line: quantity x @price, then total on right
+      const qtyPrice = `${item.quantity}x @${new Intl.NumberFormat("id-ID").format(item.price)}`;
+      const itemTotal = new Intl.NumberFormat("id-ID").format(item.price * item.quantity);
+      
+      // Calculate spacing to align total to right (32 chars total width)
+      const spacing = 32 - qtyPrice.length - itemTotal.length;
+      receiptText += qtyPrice + ' '.repeat(Math.max(0, spacing)) + itemTotal + '\n';
     });
+    
     receiptText += '--------------------------------\n';
-    // Subtotal
+    
+    // Subtotal - exactly like preview format
     const subtotalText = 'Subtotal:';
-    const subtotalAmount = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.subtotal);
-    receiptText += subtotalText.padEnd(22) + subtotalAmount.padStart(10) + '\n';
-    // PPN jika ada
+    const subtotalAmount = new Intl.NumberFormat("id-ID", { 
+      style: "currency", 
+      currency: "IDR",
+      minimumFractionDigits: 0
+    }).format(transaction.subtotal);
+    const subtotalSpacing = 32 - subtotalText.length - subtotalAmount.length;
+    receiptText += subtotalText + ' '.repeat(Math.max(0, subtotalSpacing)) + subtotalAmount + '\n';
+    
+    // PPN if enabled
     if (transaction.ppnEnabled) {
       const ppnText = `PPN (${transaction.ppnPercentage}%):`;
-      const ppnAmount = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.ppnAmount);
-      receiptText += ppnText.padEnd(22) + ppnAmount.padStart(10) + '\n';
+      const ppnAmount = new Intl.NumberFormat("id-ID", { 
+        style: "currency", 
+        currency: "IDR",
+        minimumFractionDigits: 0
+      }).format(transaction.ppnAmount);
+      const ppnSpacing = 32 - ppnText.length - ppnAmount.length;
+      receiptText += ppnText + ' '.repeat(Math.max(0, ppnSpacing)) + ppnAmount + '\n';
     }
-    // Total
+    
     receiptText += '--------------------------------\n';
+    
+    // Total - bold format exactly like preview
     const totalText = 'Total:';
-    const totalAmount = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.total);
+    const totalAmount = new Intl.NumberFormat("id-ID", { 
+      style: "currency", 
+      currency: "IDR",
+      minimumFractionDigits: 0
+    }).format(transaction.total);
+    const totalSpacing = 32 - totalText.length - totalAmount.length;
+    
     receiptText += '\x1B\x45\x01'; // Bold on
-    receiptText += totalText.padEnd(22) + totalAmount.padStart(10) + '\n';
+    receiptText += totalText + ' '.repeat(Math.max(0, totalSpacing)) + totalAmount + '\n';
     receiptText += '\x1B\x45\x00'; // Bold off
-    // Pesan terima kasih
+    
+    // Thank you message
     receiptText += '\n';
     receiptText += '\x1B\x61\x01'; // Center alignment
     receiptText += 'Terima kasih!\n';
     receiptText += '\x1B\x61\x00'; // Left alignment
+    
     receiptText += '\n\n\n'; // Feed paper
     receiptText += '\x1D\x56\x41'; // Cut paper
 
