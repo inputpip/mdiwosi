@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { ShoppingCart, Clock, User, LogOut, Menu, X } from 'lucide-react'
+import { ShoppingCart, Clock, User, LogOut, Menu, X, List } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -22,6 +22,14 @@ const MobileLayout = () => {
       path: '/pos',
       description: 'Buat transaksi penjualan',
       color: 'bg-blue-500 hover:bg-blue-600',
+      textColor: 'text-white'
+    },
+    {
+      title: 'Data Transaksi',
+      icon: List,
+      path: '/transactions',
+      description: 'Lihat riwayat transaksi & cetak',
+      color: 'bg-purple-500 hover:bg-purple-600',
       textColor: 'text-white'
     },
     {

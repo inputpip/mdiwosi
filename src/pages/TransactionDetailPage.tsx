@@ -114,24 +114,25 @@ export default function TransactionDetailPage() {
         template={printTemplate}
       />
 
-      <div className="flex items-center justify-between">
+      {/* Mobile and Desktop Header */}
+      <div className="flex flex-col space-y-4 md:flex-row md:items-center md:justify-between md:space-y-0">
         <div className="flex items-center gap-4">
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" size="sm">
             <Link to="/transactions">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Kembali
+              <span className="hidden sm:inline">Kembali</span>
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">Detail Transaksi</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">Detail Transaksi</h1>
             <p className="text-muted-foreground">
               #{transaction.id}
             </p>
           </div>
         </div>
         
-        {/* Print Buttons */}
-        <div className="flex gap-2">
+        {/* Print Buttons - Hidden on mobile, shown on desktop */}
+        <div className="hidden md:flex gap-2">
           <Button variant="outline" onClick={() => handlePrintClick('receipt')}>
             <Printer className="mr-2 h-4 w-4" />
             Cetak Thermal
@@ -143,39 +144,62 @@ export default function TransactionDetailPage() {
         </div>
       </div>
 
-      {/* Transaction Info Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Mobile Print Actions - Sticky at top */}
+      <div className="md:hidden sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border/40 -mx-6 px-6 py-3">
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex-1"
+            onClick={() => handlePrintClick('receipt')}
+          >
+            <Printer className="mr-2 h-4 w-4" />
+            Cetak Thermal
+          </Button>
+          <Button 
+            size="sm" 
+            className="flex-1"
+            onClick={() => handlePrintClick('invoice')}
+          >
+            <FileDown className="mr-2 h-4 w-4" />
+            Cetak Invoice
+          </Button>
+        </div>
+      </div>
+
+      {/* Transaction Info Cards - Mobile optimized */}
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Status Order</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Status Order</CardTitle>
+            <Package className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <Badge variant={getStatusVariant(transaction.status)}>
+          <CardContent className="pt-1 md:pt-0">
+            <Badge variant={getStatusVariant(transaction.status)} className="text-xs">
               {transaction.status}
             </Badge>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Status Pembayaran</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Status Bayar</CardTitle>
+            <CreditCard className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <Badge variant={getPaymentStatusVariant(transaction.paidAmount || 0, transaction.total)}>
+          <CardContent className="pt-1 md:pt-0">
+            <Badge variant={getPaymentStatusVariant(transaction.paidAmount || 0, transaction.total)} className="text-xs">
               {getPaymentStatusText(transaction.paidAmount || 0, transaction.total)}
             </Badge>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Transaksi</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Total</CardTitle>
+            <CreditCard className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="pt-1 md:pt-0">
+            <div className="text-lg md:text-2xl font-bold">
               {new Intl.NumberFormat("id-ID", {
                 style: "currency",
                 currency: "IDR",
@@ -186,12 +210,12 @@ export default function TransactionDetailPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sisa Tagihan</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 md:pb-2">
+            <CardTitle className="text-xs md:text-sm font-medium">Sisa</CardTitle>
+            <CreditCard className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+          <CardContent className="pt-1 md:pt-0">
+            <div className="text-lg md:text-2xl font-bold text-red-600">
               {new Intl.NumberFormat("id-ID", {
                 style: "currency",
                 currency: "IDR",
@@ -202,16 +226,16 @@ export default function TransactionDetailPage() {
         </Card>
       </div>
 
-      {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Content - Mobile optimized */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Left Column - Transaction Details */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 md:space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Informasi Transaksi</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="space-y-3 md:space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <div>
@@ -251,53 +275,91 @@ export default function TransactionDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Items Table */}
+          {/* Items Table - Mobile optimized */}
           <Card>
             <CardHeader>
               <CardTitle>Detail Produk</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Produk</TableHead>
-                    <TableHead className="text-center">Qty</TableHead>
-                    <TableHead className="text-right">Harga Satuan</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transaction.items.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{item.product.name}</p>
+              {/* Mobile View - Card List */}
+              <div className="md:hidden space-y-3">
+                {transaction.items.map((item, index) => (
+                  <Card key={index} className="p-3">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{item.product.name}</p>
                           {item.notes && (
-                            <p className="text-sm text-muted-foreground">{item.notes}</p>
+                            <p className="text-xs text-muted-foreground">{item.notes}</p>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {item.quantity} {item.unit}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {new Intl.NumberFormat("id-ID", {
+                        <div className="text-right ml-2">
+                          <p className="font-medium text-sm">
+                            {new Intl.NumberFormat("id-ID", {
+                              style: "currency",
+                              currency: "IDR",
+                              minimumFractionDigits: 0,
+                            }).format(item.price * item.quantity)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>{item.quantity} {item.unit}</span>
+                        <span>@{new Intl.NumberFormat("id-ID", {
                           style: "currency",
                           currency: "IDR",
                           minimumFractionDigits: 0,
-                        }).format(item.price)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {new Intl.NumberFormat("id-ID", {
-                          style: "currency",
-                          currency: "IDR",
-                          minimumFractionDigits: 0,
-                        }).format(item.price * item.quantity)}
-                      </TableCell>
+                        }).format(item.price)}</span>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+              
+              {/* Desktop View - Table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Produk</TableHead>
+                      <TableHead className="text-center">Qty</TableHead>
+                      <TableHead className="text-right">Harga Satuan</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {transaction.items.map((item, index) => (
+                      <TableRow key={index}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{item.product.name}</p>
+                            {item.notes && (
+                              <p className="text-sm text-muted-foreground">{item.notes}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {item.quantity} {item.unit}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {new Intl.NumberFormat("id-ID", {
+                            style: "currency",
+                            currency: "IDR",
+                            minimumFractionDigits: 0,
+                          }).format(item.price)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {new Intl.NumberFormat("id-ID", {
+                            style: "currency",
+                            currency: "IDR",
+                            minimumFractionDigits: 0,
+                          }).format(item.price * item.quantity)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
               <Separator className="my-4" />
               
@@ -342,7 +404,7 @@ export default function TransactionDetailPage() {
         </div>
 
         {/* Right Column - Payment Info */}
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Informasi Pembayaran</CardTitle>
@@ -388,6 +450,19 @@ export default function TransactionDetailPage() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      </div>
+
+      {/* Mobile Floating Print Button - Alternative option */}
+      <div className="md:hidden fixed bottom-6 right-4 z-20">
+        <div className="flex flex-col gap-2">
+          <Button
+            size="lg"
+            className="rounded-full shadow-lg"
+            onClick={() => handlePrintClick('receipt')}
+          >
+            <Printer className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     </div>

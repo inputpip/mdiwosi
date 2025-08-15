@@ -73,7 +73,7 @@ export const useAttendance = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('attendance')
-        .select('*, profiles(full_name)')
+        .select('*')
         .order('check_in_time', { ascending: false });
       if (error) throw new Error(error.message);
       return data;

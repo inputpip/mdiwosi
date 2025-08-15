@@ -251,6 +251,147 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
     printWindow?.print();
   };
 
+  // Fungsi cetak Rawbt Thermal 80mm
+  const handleRawbtPrint = () => {
+    if (!transaction) return;
+
+    const orderDate = transaction.orderDate ? new Date(transaction.orderDate) : null;
+    
+    // Format teks untuk printer thermal 80mm
+    let receiptText = '';
+    
+    // Header
+    receiptText += '\x1B\x40'; // ESC @ (Initialize printer)
+    receiptText += '\x1B\x61\x01'; // ESC a 1 (Center alignment)
+    receiptText += (companyInfo?.name || 'Nota Transaksi') + '\n';
+    receiptText += '\x1B\x61\x00'; // ESC a 0 (Left alignment)
+    
+    if (companyInfo?.address) {
+      receiptText += '\x1B\x61\x01'; // Center
+      receiptText += companyInfo.address + '\n';
+      receiptText += '\x1B\x61\x00'; // Left
+    }
+    
+    if (companyInfo?.phone) {
+      receiptText += '\x1B\x61\x01'; // Center
+      receiptText += companyInfo.phone + '\n';
+      receiptText += '\x1B\x61\x00'; // Left
+    }
+    
+    receiptText += '\n';
+    receiptText += '--------------------------------\n';
+    receiptText += `No: ${transaction.id}\n`;
+    receiptText += `Tgl: ${orderDate ? format(orderDate, "dd/MM/yy HH:mm", { locale: id }) : 'N/A'}\n`;
+    receiptText += `Plgn: ${transaction.customerName}\n`;
+    receiptText += `Kasir: ${transaction.cashierName}\n`;
+    receiptText += '--------------------------------\n';
+    
+    // Items
+    receiptText += 'Item                        Total\n';
+    receiptText += '--------------------------------\n';
+    
+    transaction.items.forEach((item) => {
+      const itemName = item.product.name.length > 20 
+        ? item.product.name.substring(0, 20) + '...' 
+        : item.product.name;
+      
+      receiptText += itemName + '\n';
+      
+      const qtyPrice = `${item.quantity}x @${new Intl.NumberFormat("id-ID").format(item.price)}`;
+      const total = new Intl.NumberFormat("id-ID").format(item.price * item.quantity);
+      const spacing = 32 - qtyPrice.length - total.length;
+      
+      receiptText += qtyPrice + ' '.repeat(Math.max(0, spacing)) + total + '\n';
+    });
+    
+    receiptText += '--------------------------------\n';
+    
+    // Subtotal
+    const subtotalText = 'Subtotal:';
+    const subtotalAmount = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.subtotal);
+    const subtotalSpacing = 32 - subtotalText.length - subtotalAmount.length;
+    receiptText += subtotalText + ' '.repeat(Math.max(0, subtotalSpacing)) + subtotalAmount + '\n';
+    
+    // PPN if enabled
+    if (transaction.ppnEnabled) {
+      const ppnText = `PPN (${transaction.ppnPercentage}%):`;
+      const ppnAmount = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.ppnAmount);
+      const ppnSpacing = 32 - ppnText.length - ppnAmount.length;
+      receiptText += ppnText + ' '.repeat(Math.max(0, ppnSpacing)) + ppnAmount + '\n';
+    }
+    
+    receiptText += '--------------------------------\n';
+    
+    // Total
+    const totalText = 'Total:';
+    const totalAmount = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.total);
+    const totalSpacing = 32 - totalText.length - totalAmount.length;
+    receiptText += '\x1B\x45\x01'; // ESC E 1 (Bold on)
+    receiptText += totalText + ' '.repeat(Math.max(0, totalSpacing)) + totalAmount + '\n';
+    receiptText += '\x1B\x45\x00'; // ESC E 0 (Bold off)
+    
+    receiptText += '\n';
+    receiptText += '\x1B\x61\x01'; // Center alignment
+    receiptText += 'Terima kasih!\n';
+    receiptText += '\x1B\x61\x00'; // Left alignment
+    
+    receiptText += '\n\n\n'; // Feed paper
+    receiptText += '\x1D\x56\x41'; // GS V A (Cut paper)
+    
+    // Multiple approaches untuk RawBT
+    const handleRawbtConnection = () => {
+      const encodedText = encodeURIComponent(receiptText);
+      
+      // Method 1: Coba rawbt:// protocol
+      const rawbtUrl = `rawbt:${encodedText}`;
+      const link = document.createElement('a');
+      link.href = rawbtUrl;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Method 2: Fallback dengan window.open ke RawBT web interface (jika ada)
+      setTimeout(() => {
+        try {
+          window.open(`http://localhost:8080/?data=${encodedText}`, '_rawbt');
+        } catch (e) {
+          // Method 3: Copy ke clipboard sebagai fallback terakhir
+          navigator.clipboard?.writeText(receiptText).then(() => {
+            const userChoice = confirm(
+              'RawBT tidak terdeteksi!\n\n' +
+              'Teks nota sudah disalin ke clipboard.\n' +
+              'Klik OK untuk membuka RawBT secara manual, atau Cancel untuk menggunakan cara lain.\n\n' +
+              'Instruksi:\n' +
+              '1. Buka aplikasi RawBT\n' +
+              '2. Paste (Ctrl+V) di area teks\n' +
+              '3. Klik Send/Print'
+            );
+            
+            if (userChoice) {
+              // Coba buka RawBT executable (Windows)
+              try {
+                window.open('ms-windows-store://pdp/?ProductId=9NBLGGH5Z3VL', '_blank');
+              } catch (e) {
+                alert('Silakan buka aplikasi RawBT secara manual dan paste teks yang sudah disalin.');
+              }
+            }
+          }).catch(() => {
+            alert(
+              'Tidak dapat mengakses RawBT atau clipboard.\n\n' +
+              'Silakan:\n' +
+              '1. Install aplikasi RawBT\n' +
+              '2. Copy teks nota secara manual\n' +
+              '3. Paste di RawBT untuk mencetak'
+            );
+          });
+        }
+      }, 1000);
+    };
+    
+    handleRawbtConnection();
+  };
+
   const handlePdfDownload = () => {
     if (template === 'invoice') {
       generateInvoicePdf();
@@ -352,7 +493,8 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
         <DialogFooter className="p-4 border-t bg-muted/40 no-print">
           <Button variant="outline" onClick={() => onOpenChange(false)}><X className="mr-2 h-4 w-4" /> Tutup</Button>
           <Button variant="outline" onClick={handlePdfDownload}><FileDown className="mr-2 h-4 w-4" /> Simpan PDF</Button>
-          <Button onClick={handleDotMatrixPrint}><Printer className="mr-2 h-4 w-4" /> Cetak Dot Matrix</Button>
+          <Button variant="outline" onClick={handleDotMatrixPrint}><Printer className="mr-2 h-4 w-4" /> Cetak Dot Matrix</Button>
+          <Button onClick={handleRawbtPrint}><Printer className="mr-2 h-4 w-4" /> Cetak Rawbt Thermal</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

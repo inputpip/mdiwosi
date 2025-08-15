@@ -58,12 +58,14 @@ function App() {
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               
-              {/* Mobile routes - only POS and Attendance */}
+              {/* Mobile routes - POS, Attendance, and Transactions */}
               {shouldUseMobileLayout ? (
                 <Route element={<ProtectedRoute><MobileLayout /></ProtectedRoute>}>
                   <Route path="/" element={<PosPage />} />
                   <Route path="/pos" element={<PosPage />} />
                   <Route path="/attendance" element={<AttendancePage />} />
+                  <Route path="/transactions" element={<TransactionListPage />} />
+                  <Route path="/transactions/:id" element={<TransactionDetailPage />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
               ) : (
