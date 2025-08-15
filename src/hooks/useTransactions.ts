@@ -23,7 +23,7 @@ const fromDb = (dbTransaction: any): Transaction => ({
   ppnPercentage: dbTransaction.ppn_percentage ?? 11,
   ppnAmount: dbTransaction.ppn_amount ?? 0,
   total: dbTransaction.total,
-  paidAmount: dbTransaction.paid_amount,
+  paidAmount: dbTransaction.paid_amount || 0,
   paymentStatus: dbTransaction.payment_status,
   status: dbTransaction.status,
   createdAt: new Date(dbTransaction.created_at),
@@ -192,7 +192,7 @@ export const useTransactions = () => {
 
   const writeOffReceivable = useMutation({
     mutationFn: async (transaction: Transaction) => {
-      const amountToWriteOff = transaction.total - transaction.paidAmount;
+      const amountToWriteOff = transaction.total - (transaction.paidAmount || 0);
       if (amountToWriteOff <= 0) {
         throw new Error("Piutang ini sudah lunas atau tidak ada sisa tagihan.");
       }

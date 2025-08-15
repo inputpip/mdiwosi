@@ -257,91 +257,67 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
 
     const orderDate = transaction.orderDate ? new Date(transaction.orderDate) : null;
     
-    // Format teks untuk printer thermal 80mm
+    // Format teks untuk printer thermal 80mm agar mirip preview
     let receiptText = '';
-    
-    // Header
     receiptText += '\x1B\x40'; // ESC @ (Initialize printer)
-    receiptText += '\x1B\x61\x01'; // ESC a 1 (Center alignment)
+    // Header
+    receiptText += '\x1B\x61\x01'; // Center alignment
+    receiptText += (companyInfo?.logo ? '[LOGO]\n' : ''); // Logo placeholder
     receiptText += (companyInfo?.name || 'Nota Transaksi') + '\n';
-    receiptText += '\x1B\x61\x00'; // ESC a 0 (Left alignment)
-    
-    if (companyInfo?.address) {
-      receiptText += '\x1B\x61\x01'; // Center
-      receiptText += companyInfo.address + '\n';
-      receiptText += '\x1B\x61\x00'; // Left
-    }
-    
-    if (companyInfo?.phone) {
-      receiptText += '\x1B\x61\x01'; // Center
-      receiptText += companyInfo.phone + '\n';
-      receiptText += '\x1B\x61\x00'; // Left
-    }
-    
+    if (companyInfo?.address) receiptText += companyInfo.address + '\n';
+    if (companyInfo?.phone) receiptText += companyInfo.phone + '\n';
+    receiptText += '\x1B\x61\x00'; // Left alignment
     receiptText += '\n';
-    receiptText += '--------------------------------\n';
+    // Info transaksi
     receiptText += `No: ${transaction.id}\n`;
     receiptText += `Tgl: ${orderDate ? format(orderDate, "dd/MM/yy HH:mm", { locale: id }) : 'N/A'}\n`;
     receiptText += `Plgn: ${transaction.customerName}\n`;
     receiptText += `Kasir: ${transaction.cashierName}\n`;
     receiptText += '--------------------------------\n';
-    
-    // Items
-    receiptText += 'Item                        Total\n';
+    // Tabel item
+    receiptText += 'Item           Qty@Harga   Total\n';
     receiptText += '--------------------------------\n';
-    
     transaction.items.forEach((item) => {
-      const itemName = item.product.name.length > 20 
-        ? item.product.name.substring(0, 20) + '...' 
-        : item.product.name;
-      
-      receiptText += itemName + '\n';
-      
-      const qtyPrice = `${item.quantity}x @${new Intl.NumberFormat("id-ID").format(item.price)}`;
+      // Nama produk
+      let itemName = item.product.name;
+      if (itemName.length > 14) itemName = itemName.substring(0, 14) + '...';
+      // Qty dan harga
+      const qtyPrice = `${item.quantity}x@${new Intl.NumberFormat("id-ID").format(item.price)}`;
       const total = new Intl.NumberFormat("id-ID").format(item.price * item.quantity);
-      const spacing = 32 - qtyPrice.length - total.length;
-      
-      receiptText += qtyPrice + ' '.repeat(Math.max(0, spacing)) + total + '\n';
+      // Format baris item
+      // |Nama         |Qty@Harga |Total|
+      const line = itemName.padEnd(15) + qtyPrice.padEnd(11) + total.padStart(6);
+      receiptText += line + '\n';
     });
-    
     receiptText += '--------------------------------\n';
-    
     // Subtotal
     const subtotalText = 'Subtotal:';
     const subtotalAmount = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.subtotal);
-    const subtotalSpacing = 32 - subtotalText.length - subtotalAmount.length;
-    receiptText += subtotalText + ' '.repeat(Math.max(0, subtotalSpacing)) + subtotalAmount + '\n';
-    
-    // PPN if enabled
+    receiptText += subtotalText.padEnd(22) + subtotalAmount.padStart(10) + '\n';
+    // PPN jika ada
     if (transaction.ppnEnabled) {
       const ppnText = `PPN (${transaction.ppnPercentage}%):`;
       const ppnAmount = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.ppnAmount);
-      const ppnSpacing = 32 - ppnText.length - ppnAmount.length;
-      receiptText += ppnText + ' '.repeat(Math.max(0, ppnSpacing)) + ppnAmount + '\n';
+      receiptText += ppnText.padEnd(22) + ppnAmount.padStart(10) + '\n';
     }
-    
-    receiptText += '--------------------------------\n';
-    
     // Total
+    receiptText += '--------------------------------\n';
     const totalText = 'Total:';
     const totalAmount = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(transaction.total);
-    const totalSpacing = 32 - totalText.length - totalAmount.length;
-    receiptText += '\x1B\x45\x01'; // ESC E 1 (Bold on)
-    receiptText += totalText + ' '.repeat(Math.max(0, totalSpacing)) + totalAmount + '\n';
-    receiptText += '\x1B\x45\x00'; // ESC E 0 (Bold off)
-    
+    receiptText += '\x1B\x45\x01'; // Bold on
+    receiptText += totalText.padEnd(22) + totalAmount.padStart(10) + '\n';
+    receiptText += '\x1B\x45\x00'; // Bold off
+    // Pesan terima kasih
     receiptText += '\n';
     receiptText += '\x1B\x61\x01'; // Center alignment
     receiptText += 'Terima kasih!\n';
     receiptText += '\x1B\x61\x00'; // Left alignment
-    
     receiptText += '\n\n\n'; // Feed paper
-    receiptText += '\x1D\x56\x41'; // GS V A (Cut paper)
-    
+    receiptText += '\x1D\x56\x41'; // Cut paper
+
     // Multiple approaches untuk RawBT
     const handleRawbtConnection = () => {
       const encodedText = encodeURIComponent(receiptText);
-      
       // Method 1: Coba rawbt:// protocol
       const rawbtUrl = `rawbt:${encodedText}`;
       const link = document.createElement('a');
@@ -350,7 +326,6 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
       // Method 2: Fallback dengan window.open ke RawBT web interface (jika ada)
       setTimeout(() => {
         try {
@@ -367,9 +342,7 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
               '2. Paste (Ctrl+V) di area teks\n' +
               '3. Klik Send/Print'
             );
-            
             if (userChoice) {
-              // Coba buka RawBT executable (Windows)
               try {
                 window.open('ms-windows-store://pdp/?ProductId=9NBLGGH5Z3VL', '_blank');
               } catch (e) {
@@ -388,7 +361,6 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
         }
       }, 1000);
     };
-    
     handleRawbtConnection();
   };
 

@@ -43,7 +43,7 @@ export function PayReceivableDialog({ open, onOpenChange, transaction }: PayRece
   
   const [isSubmitting, setIsSubmitting] = React.useState(false)
 
-  const remainingAmount = transaction ? transaction.total - transaction.paidAmount : 0
+  const remainingAmount = transaction ? transaction.total - (transaction.paidAmount || 0) : 0
 
   const onSubmit = async (data: PaymentFormData) => {
     if (!transaction || !user) return;
@@ -60,7 +60,7 @@ export function PayReceivableDialog({ open, onOpenChange, transaction }: PayRece
       }
       
       // Calculate new payment amount
-      const newPaidAmount = transaction.paidAmount + data.amount;
+      const newPaidAmount = (transaction.paidAmount || 0) + data.amount;
       const newStatus = newPaidAmount >= transaction.total ? 'Lunas' : 'Belum Lunas';
       
       // Update transaction with payment

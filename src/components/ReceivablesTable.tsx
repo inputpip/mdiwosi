@@ -101,13 +101,13 @@ export function ReceivablesTable() {
     { accessorKey: "customerName", header: "Pelanggan" },
     { accessorKey: "orderDate", header: "Tgl Order", cell: ({ row }) => format(new Date(row.getValue("orderDate")), "d MMM yyyy", { locale: id }) },
     { accessorKey: "total", header: "Total Tagihan", cell: ({ row }) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(row.getValue("total")) },
-    { accessorKey: "paidAmount", header: "Telah Dibayar", cell: ({ row }) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(row.getValue("paidAmount")) },
+    { accessorKey: "paidAmount", header: "Telah Dibayar", cell: ({ row }) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(row.getValue("paidAmount") || 0) },
     {
       id: "paymentStatus",
       header: "Status Pembayaran",
       cell: ({ row }) => {
         const total = row.original.total
-        const paid = row.original.paidAmount
+        const paid = row.original.paidAmount || 0
         let status: string
         let statusLabel: string
         let statusColor: string
@@ -142,7 +142,7 @@ export function ReceivablesTable() {
       id: "remainingAmount",
       header: "Sisa Tagihan",
       cell: ({ row }) => {
-        const remaining = row.original.total - row.original.paidAmount
+        const remaining = row.original.total - (row.original.paidAmount || 0)
         return <span className="font-bold text-destructive">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(remaining)}</span>
       }
     },
@@ -188,7 +188,7 @@ export function ReceivablesTable() {
           <AlertDialogHeader>
             <AlertDialogTitle>Anda yakin ingin memutihkan piutang ini?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tindakan ini akan menghapus sisa tagihan untuk <strong>No. Order {selectedTransaction?.id}</strong> sebesar <strong>{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(selectedTransaction ? selectedTransaction.total - selectedTransaction.paidAmount : 0)}</strong>.
+              Tindakan ini akan menghapus sisa tagihan untuk <strong>No. Order {selectedTransaction?.id}</strong> sebesar <strong>{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(selectedTransaction ? selectedTransaction.total - (selectedTransaction.paidAmount || 0) : 0)}</strong>.
               <br /><br />
               Sebuah catatan pengeluaran akan dibuat secara otomatis untuk menyeimbangkan pembukuan. Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
