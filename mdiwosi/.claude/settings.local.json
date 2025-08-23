@@ -27,8 +27,12 @@
       "Bash(supabase:*)",
       "Bash(psql:*)",
       "Bash(mv:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Read(/D:\\mdiwosi v1/**)"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "D:\\mdiwosi v1"
+    ]
   }
 }
