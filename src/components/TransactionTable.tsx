@@ -9,7 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { MoreHorizontal, PlusCircle, FileDown, Trash2, Search, X } from "lucide-react"
+import { MoreHorizontal, PlusCircle, FileDown, Trash2, Search, X, Filter } from "lucide-react"
 import * as XLSX from "xlsx"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -124,6 +124,12 @@ export function TransactionTable() {
   
   // Date range filter state
   const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
+  
+  // Status filter state
+  const [statusFilter, setStatusFilter] = React.useState<string>('all');
+  
+  // Filter visibility state
+  const [showFilters, setShowFilters] = React.useState<boolean>(false);
 
   const handleStatusChange = (transactionId: string, newStatus: TransactionStatus) => {
     // Save current state before making changes
@@ -384,21 +390,35 @@ export function TransactionTable() {
     },
   ]
 
-  // Filter data by date range
+  // Filter data by date range and status
   const filteredTransactions = React.useMemo(() => {
-    if (!dateRange?.from || !transactions) {
-      return transactions || [];
+    let filtered = transactions || [];
+    
+    // Date range filter
+    if (dateRange?.from) {
+      const fromDate = startOfDay(dateRange.from);
+      const toDate = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+      
+      filtered = filtered.filter(transaction => {
+        if (!transaction.orderDate) return false;
+        const transactionDate = new Date(transaction.orderDate);
+        return transactionDate >= fromDate && transactionDate <= toDate;
+      });
     }
     
-    const fromDate = startOfDay(dateRange.from);
-    const toDate = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+    // Status filter
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'belum_selesai') {
+        // Filter untuk transaksi yang belum selesai (semua status kecuali "Pesanan Selesai")
+        filtered = filtered.filter(transaction => transaction.status !== 'Pesanan Selesai');
+      } else {
+        // Filter berdasarkan status spesifik
+        filtered = filtered.filter(transaction => transaction.status === statusFilter);
+      }
+    }
     
-    return transactions.filter(transaction => {
-      if (!transaction.orderDate) return false;
-      const transactionDate = new Date(transaction.orderDate);
-      return transactionDate >= fromDate && transactionDate <= toDate;
-    });
-  }, [transactions, dateRange]);
+    return filtered;
+  }, [transactions, dateRange, statusFilter]);
 
   const table = useReactTable({
     data: filteredTransactions,
@@ -548,74 +568,19 @@ export function TransactionTable() {
 
   return (
     <div className="w-full pb-24"> {/* Add bottom padding for fixed pagination */}
-      {/* Date Range Filter */}
-      {dateRange && (
-        <div className="flex items-center gap-4 mb-4">
-          <DateRangePicker
-            date={dateRange}
-            onDateChange={setDateRange}
-            className="w-auto"
-          />
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setDateRange(undefined)}
-            className="h-9 px-3"
-          >
-            <X className="h-4 w-4 mr-1" />
-            Clear Filter
-          </Button>
-        </div>
-      )}
-      
+      {/* Header with Filter Toggle and Actions */}
       <div className="flex items-center justify-between py-4">
-        <div className="flex gap-4 items-center">
-          <DateRangePicker
-            date={dateRange}
-            onDateChange={setDateRange}
-            className="w-auto"
-          />
-          {dateRange && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setDateRange(undefined)}
-              className="h-9 px-3"
-            >
-              <X className="h-4 w-4 mr-1" />
-              Clear Date Filter
-            </Button>
-          )}
-        </div>
-        
-        <div />  {/* Spacer */}
-      </div>
-      
-      <div className="flex items-center justify-between py-2">
-        <div className="flex gap-4 items-center">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Cari berdasarkan nama pelanggan..."
-              value={(table.getColumn("customerName")?.getFilterValue() as string) ?? ""}
-              onChange={(event) =>
-                table.getColumn("customerName")?.setFilterValue(event.target.value)
-              }
-              className="pl-10"
-            />
-          </div>
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Cari berdasarkan produk..."
-              value={(table.getColumn("products")?.getFilterValue() as string) ?? ""}
-              onChange={(event) =>
-                table.getColumn("products")?.setFilterValue(event.target.value)
-              }
-              className="pl-10"
-            />
-          </div>
-          {(table.getState().columnFilters.length > 0) && (
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowFilters(!showFilters)}
+            className={`${showFilters ? 'bg-primary text-primary-foreground' : ''}`}
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Filter
+          </Button>
+          {(table.getState().columnFilters.length > 0 || statusFilter !== 'all' || dateRange) && (
             <div className="flex items-center gap-2">
               <div className="text-sm text-muted-foreground">
                 Menampilkan {table.getFilteredRowModel().rows.length} dari {table.getCoreRowModel().rows.length} transaksi
@@ -623,11 +588,15 @@ export function TransactionTable() {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => table.resetColumnFilters()}
+                onClick={() => {
+                  table.resetColumnFilters();
+                  setStatusFilter('all');
+                  setDateRange(undefined);
+                }}
                 className="h-8 px-2"
               >
                 <X className="h-4 w-4" />
-                Clear
+                Clear All
               </Button>
             </div>
           )}
@@ -638,6 +607,81 @@ export function TransactionTable() {
           <Button asChild><Link to="/pos"><PlusCircle className="mr-2 h-4 w-4" /> Tambah Transaksi</Link></Button>
         </div>
       </div>
+
+      {/* Collapsible Filter Section */}
+      {showFilters && (
+        <div className="border rounded-lg p-4 mb-4 bg-card">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Tanggal:</label>
+                <DateRangePicker
+                  date={dateRange}
+                  onDateChange={setDateRange}
+                  className="w-auto"
+                />
+                {dateRange && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setDateRange(undefined)}
+                    className="h-9 px-2"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Status:</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    <SelectItem value="belum_selesai">Belum Selesai</SelectItem>
+                    <SelectItem value="Pesanan Masuk">Pesanan Masuk</SelectItem>
+                    <SelectItem value="Proses Design">Proses Design</SelectItem>
+                    <SelectItem value="ACC Costumer">ACC Customer</SelectItem>
+                    <SelectItem value="Proses Produksi">Proses Produksi</SelectItem>
+                    <SelectItem value="Pesanan Selesai">Pesanan Selesai</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Pelanggan:</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari berdasarkan nama pelanggan..."
+                    value={(table.getColumn("customerName")?.getFilterValue() as string) ?? ""}
+                    onChange={(event) =>
+                      table.getColumn("customerName")?.setFilterValue(event.target.value)
+                    }
+                    className="pl-10 w-[250px]"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium">Produk:</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari berdasarkan produk..."
+                    value={(table.getColumn("products")?.getFilterValue() as string) ?? ""}
+                    onChange={(event) =>
+                      table.getColumn("products")?.setFilterValue(event.target.value)
+                    }
+                    className="pl-10 w-[250px]"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="rounded-md border">
         <Table>
           <TableHeader>

@@ -1,5 +1,5 @@
 "use client"
-import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogFooter, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Transaction } from "@/types/transaction"
@@ -10,7 +10,6 @@ import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import { useCompanySettings, CompanyInfo } from "@/hooks/useCompanySettings"
 import { cn } from "@/lib/utils"
-import { useNavigate } from "react-router-dom"
 
 interface PrintReceiptDialogProps {
   open: boolean
@@ -55,7 +54,7 @@ const ReceiptTemplate = ({ transaction, companyInfo }: { transaction: Transactio
   return (
     <div className="font-mono w-full max-w-sm mx-auto">
       <header className="text-center mb-2">
-        {companyInfo?.logo && <img src={companyInfo.logo} alt="Logo" className="mx-auto max-h-12 mb-1" />}
+        {companyInfo?.logo && <img src={companyInfo.logo} alt="Logo" className="mx-auto max-h-6 max-w-12 mb-1 object-contain" />}
         <h1 className="text-sm font-bold break-words">{companyInfo?.name || 'Nota Transaksi'}</h1>
         <p className="text-xs break-words">{companyInfo?.address}</p>
         <p className="text-xs break-words">{companyInfo?.phone}</p>
@@ -145,7 +144,7 @@ const InvoiceTemplate = ({ transaction, companyInfo }: { transaction: Transactio
     <div className="p-8 bg-white text-black">
       <header className="flex justify-between items-start mb-8 pb-4 border-b-2 border-gray-200">
         <div>
-          {companyInfo?.logo && <img src={companyInfo.logo} alt="Logo" className="max-h-20 mb-4" />}
+          {companyInfo?.logo && <img src={companyInfo.logo} alt="Logo" className="w-[1.2cm] h-[1.2cm] mb-4 object-contain" />}
           <h1 className="text-2xl font-bold text-gray-800">{companyInfo?.name}</h1>
           <p className="text-sm text-gray-500">{companyInfo?.address}</p>
           <p className="text-sm text-gray-500">{companyInfo?.phone}</p>
@@ -213,7 +212,6 @@ const InvoiceTemplate = ({ transaction, companyInfo }: { transaction: Transactio
 
 export function PrintReceiptDialog({ open, onOpenChange, transaction, template }: PrintReceiptDialogProps) {
   const { settings: companyInfo } = useCompanySettings();
-  const navigate = useNavigate();
 
   const generateInvoicePdf = () => {
     if (!transaction) return;
@@ -232,8 +230,8 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
       }).format(amount);
     };
 
-    const logoWidth = 40;
-    const logoHeight = 16;
+    const logoWidth = 25;
+    const logoHeight = 12;
     if (companyInfo?.logo) {
       try {
         doc.addImage(companyInfo.logo, 'PNG', margin, 12, logoWidth, logoHeight, undefined, 'FAST');
@@ -309,17 +307,37 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
   const handleThermalPrint = () => {
     const printWindow = window.open('', '_blank');
     const printableArea = document.getElementById('printable-area')?.innerHTML;
-    printWindow?.document.write(`<html><head><title>Cetak Nota</title><style>body{font-family:monospace;font-size:10pt;margin:0;padding:3mm;width:78mm;} table{width:100%;border-collapse:collapse;} td,th{padding:1px;} .text-center{text-align:center;} .text-right{text-align:right;} .font-bold{font-weight:bold;} .border-y{border-top:1px dashed;border-bottom:1px dashed;} .border-b{border-bottom:1px dashed;} .py-1{padding-top:4px;padding-bottom:4px;} .mb-1{margin-bottom:4px;} .mb-2{margin-bottom:8px;} .mt-2{margin-top:8px;} .mt-3{margin-top:12px;} .mx-auto{margin-left:auto;margin-right:auto;} .max-h-12{max-height:48px;} .flex{display:flex;} .justify-between{justify-content:space-between;}</style></head><body>${printableArea}</body></html>`);
+    printWindow?.document.write(`<html><head><title>Cetak Nota</title><style>body{font-family:monospace;font-size:10pt;margin:0;padding:3mm;width:78mm;} table{width:100%;border-collapse:collapse;} td,th{padding:1px;} .text-center{text-align:center;} .text-right{text-align:right;} .font-bold{font-weight:bold;} .border-y{border-top:1px dashed;border-bottom:1px dashed;} .border-b{border-bottom:1px dashed;} .py-1{padding-top:4px;padding-bottom:4px;} .mb-1{margin-bottom:4px;} .mb-2{margin-bottom:8px;} .mt-2{margin-top:8px;} .mt-3{margin-top:12px;} .mx-auto{margin-left:auto;margin-right:auto;} .max-h-8{max-height:24px;} .max-w-16{max-width:48px;} .object-contain{object-fit:contain;} .flex{display:flex;} .justify-between{justify-content:space-between;}</style></head><body>${printableArea}</body></html>`);
     printWindow?.document.close();
     printWindow?.focus();
     printWindow?.print();
   };
 
-  // Fungsi cetak Dot Matrix
+  // Fungsi cetak Dot Matrix - langsung print tanpa preview
   const handleDotMatrixPrint = () => {
-    const printWindow = window.open('', '_blank');
-    const printableArea = document.getElementById('printable-area')?.innerHTML;
-    printWindow?.document.write(`
+    const printableAreaElement = document.getElementById('printable-area');
+    const printableArea = printableAreaElement?.innerHTML;
+    
+    if (!printableArea) {
+      console.error('No printable area found!');
+      return;
+    }
+
+    // Create invisible iframe for direct printing
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0px';
+    iframe.style.height = '0px';
+    iframe.style.left = '-9999px';
+    iframe.style.top = '-9999px';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) return;
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
       <html>
         <head>
           <title>Cetak Dot Matrix</title>
@@ -329,7 +347,7 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
               font-size: 10pt;
               margin: 0;
               padding: 10mm;
-              width: 210mm;
+              width: 9.5in;
               background: #fff;
             }
             table { width: 100%; border-collapse: collapse; }
@@ -345,11 +363,32 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
             .mt-2 { margin-top: 8px; }
             .mt-3 { margin-top: 12px; }
             .mx-auto { margin-left: auto; margin-right: auto; }
-            .max-h-12 { max-height: 48px; }
+            .object-contain { object-fit: contain; }
             .flex { display: flex; }
             .justify-between { justify-content: space-between; }
+            /* Dot matrix specific styles */
+            img, [alt="Logo"] { 
+              width: 1.2cm !important; 
+              height: 1.2cm !important; 
+              max-width: 1.2cm !important; 
+              max-height: 1.2cm !important; 
+              object-fit: contain !important; 
+              display: block !important;
+            }
+            @page { 
+              size: 9.5in 11in; 
+              margin: 10mm; 
+            }
             @media print {
-              body { width: 210mm; }
+              body { width: 9.5in; height: 11in; }
+              img, [alt="Logo"] { 
+                width: 1.2cm !important; 
+                height: 1.2cm !important; 
+                max-width: 1.2cm !important; 
+                max-height: 1.2cm !important; 
+                object-fit: contain !important; 
+                display: block !important;
+              }
             }
           </style>
         </head>
@@ -358,172 +397,20 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
         </body>
       </html>
     `);
-    printWindow?.document.close();
-    printWindow?.focus();
-    printWindow?.print();
-  };
+    doc.close();
 
-  // Fungsi cetak Rawbt Thermal 80mm
-  const handleRawbtPrint = () => {
-    if (!transaction) return;
-
-    const orderDate = transaction.orderDate ? new Date(transaction.orderDate) : null;
-    
-    // Enhanced currency formatting function for large numbers
-    const formatCurrency = (amount: number): string => {
-      // Handle null, undefined, or NaN values
-      if (amount === null || amount === undefined || isNaN(amount)) {
-        return "Rp 0";
-      }
-      // Convert string to number if needed
-      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-      let result = new Intl.NumberFormat("id-ID", { 
-        style: "currency", 
-        currency: "IDR",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-      }).format(numAmount);
-      
-      // Replace non-breaking space with regular space for thermal printer compatibility
-      result = result.replace(/\u00A0/g, ' ');
-      
-      return result;
-    };
-
-    // Format large numbers without currency symbol for item calculations
-    const formatNumber = (amount: number): string => {
-      // Handle null, undefined, or NaN values
-      if (amount === null || amount === undefined || isNaN(amount)) {
-        return "0";
-      }
-      // Convert string to number if needed
-      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-      let result = new Intl.NumberFormat("id-ID", {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0
-      }).format(numAmount);
-      
-      // Replace non-breaking space with regular space for thermal printer compatibility
-      result = result.replace(/\u00A0/g, ' ');
-      
-      return result;
-    };
-    
-    // Format teks untuk printer thermal 80mm sesuai template preview
-    let receiptText = '';
-    
-    // Header - exactly like preview
-    receiptText += '\x1B\x40'; // ESC @ (Initialize printer)
-    receiptText += '\x1B\x61\x01'; // Center alignment
-    receiptText += (companyInfo?.name || 'Nota Transaksi') + '\n';
-    if (companyInfo?.address) {
-      receiptText += companyInfo.address + '\n';
-    }
-    if (companyInfo?.phone) {
-      receiptText += companyInfo.phone + '\n';
-    }
-    receiptText += '\x1B\x61\x00'; // Left alignment
-    
-    // Transaction info section - with border
-    receiptText += '--------------------------------\n';
-    receiptText += `No: ${transaction.id}\n`;
-    receiptText += `Tgl: ${orderDate ? format(orderDate, "dd/MM/yy HH:mm", { locale: id }) : 'N/A'}\n`;
-    receiptText += `Plgn: ${transaction.customerName}\n`;
-    receiptText += `Kasir: ${transaction.cashierName}\n`;
-    receiptText += '--------------------------------\n';
-    
-    // Items header - exactly like preview
-    receiptText += 'Item                        Total\n';
-    receiptText += '--------------------------------\n';
-    
-    // Items - format like preview with enhanced number formatting
-    transaction.items.forEach((item) => {
-      // First line: product name
-      receiptText += item.product.name + '\n';
-      
-      // Second line: quantity x @price, then total on right
-      const qtyPrice = `${item.quantity}x @${formatNumber(item.price)}`;
-      const itemTotal = formatNumber(item.price * item.quantity);
-      
-      // Calculate spacing to align total to right (32 chars total width)
-      const spacing = 32 - qtyPrice.length - itemTotal.length;
-      receiptText += qtyPrice + ' '.repeat(Math.max(0, spacing)) + itemTotal + '\n';
-    });
-    
-    receiptText += '--------------------------------\n';
-    
-    // Subtotal - exactly like preview format with enhanced formatting
-    const subtotalText = 'Subtotal:';
-    const subtotalAmount = formatCurrency(transaction.subtotal);
-    const subtotalSpacing = 32 - subtotalText.length - subtotalAmount.length;
-    receiptText += subtotalText + ' '.repeat(Math.max(0, subtotalSpacing)) + subtotalAmount + '\n';
-    
-    // PPN if enabled
-    if (transaction.ppnEnabled) {
-      const ppnText = `PPN (${transaction.ppnPercentage}%):`;
-      const ppnAmount = formatCurrency(transaction.ppnAmount);
-      const ppnSpacing = 32 - ppnText.length - ppnAmount.length;
-      receiptText += ppnText + ' '.repeat(Math.max(0, ppnSpacing)) + ppnAmount + '\n';
-    }
-    
-    receiptText += '--------------------------------\n';
-    
-    // Total - bold format exactly like preview with enhanced formatting
-    const totalText = 'Total:';
-    const totalAmount = formatCurrency(transaction.total);
-    const totalSpacing = 32 - totalText.length - totalAmount.length;
-    
-    receiptText += '\x1B\x45\x01'; // Bold on
-    receiptText += totalText + ' '.repeat(Math.max(0, totalSpacing)) + totalAmount + '\n';
-    receiptText += '\x1B\x45\x00'; // Bold off
-    
-    receiptText += '--------------------------------\n';
-    
-    // Payment Information
-    const statusText = 'Status:';
-    const statusValue = transaction.paymentStatus;
-    const statusSpacing = 32 - statusText.length - statusValue.length;
-    receiptText += statusText + ' '.repeat(Math.max(0, statusSpacing)) + statusValue + '\n';
-    
-    const paidText = 'Jumlah Bayar:';
-    const paidAmount = formatCurrency(transaction.paidAmount);
-    const paidSpacing = 32 - paidText.length - paidAmount.length;
-    receiptText += paidText + ' '.repeat(Math.max(0, paidSpacing)) + paidAmount + '\n';
-    
-    // Show remaining amount if not fully paid
-    if (transaction.total > transaction.paidAmount) {
-      const remainingText = 'Sisa Tagihan:';
-      const remainingAmount = formatCurrency(transaction.total - transaction.paidAmount);
-      const remainingSpacing = 32 - remainingText.length - remainingAmount.length;
-      receiptText += remainingText + ' '.repeat(Math.max(0, remainingSpacing)) + remainingAmount + '\n';
-    }
-    
-    // Thank you message
-    receiptText += '\n';
-    receiptText += '\x1B\x61\x01'; // Center alignment
-    receiptText += 'Terima kasih!\n';
-    receiptText += '\x1B\x61\x00'; // Left alignment
-    
-    receiptText += '\n\n\n'; // Feed paper
-    receiptText += '\x1D\x56\x41'; // Cut paper
-
-    // Simplified RawBT handling - just try to print and redirect to transaction table
-    const encodedText = encodeURIComponent(receiptText);
-    const rawbtUrl = `rawbt:${encodedText}`;
-    
-    // Try to open RawBT protocol
-    try {
-      window.location.href = rawbtUrl;
-    } catch (error) {
-      console.error('Failed to open RawBT protocol:', error);
-    }
-    
-    // Always redirect to transaction table after print attempt
+    // Wait for content to load then print directly
     setTimeout(() => {
-      onOpenChange(false); // Close dialog first
-      navigate('/transactions'); // Then navigate to transactions
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      
+      // Clean up iframe after printing
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
     }, 500);
   };
+
 
   const handlePdfDownload = () => {
     if (template === 'invoice') {
@@ -661,6 +548,9 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto p-0">
+        <DialogTitle className="sr-only">
+          {template === 'receipt' ? 'Preview Receipt' : 'Preview Invoice'}
+        </DialogTitle>
         <div id="printable-area" className={template === 'receipt' ? 'p-4 bg-white text-black' : 'p-2'}>
           {template === 'receipt' ? (
             <div className="max-w-full overflow-x-auto">
@@ -679,9 +569,6 @@ export function PrintReceiptDialog({ open, onOpenChange, transaction, template }
           </Button>
           <Button variant="outline" onClick={handleDotMatrixPrint} className="w-full sm:w-auto">
             <Printer className="mr-2 h-4 w-4" /> Cetak Dot Matrix
-          </Button>
-          <Button onClick={handleRawbtPrint} className="w-full sm:w-auto">
-            <Printer className="mr-2 h-4 w-4" /> Cetak Rawbt Thermal
           </Button>
         </DialogFooter>
       </DialogContent>

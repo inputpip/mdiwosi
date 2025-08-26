@@ -55,8 +55,8 @@ export const PosForm = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [orderDate, setOrderDate] = useState<Date | undefined>(new Date())
   const [finishDate, setFinishDate] = useState<Date | undefined>()
-  const [designerId, setDesignerId] = useState<string>('')
-  const [operatorId, setOperatorId] = useState<string>('')
+  const [designerId, setDesignerId] = useState<string>('none')
+  const [operatorId, setOperatorId] = useState<string>('none')
   const [paymentAccountId, setPaymentAccountId] = useState<string>('')
   const [items, setItems] = useState<FormTransactionItem[]>([])
   const [diskon, setDiskon] = useState(0)
@@ -186,8 +186,8 @@ export const PosForm = () => {
       customerName: selectedCustomer.name,
       cashierId: currentUser.id,
       cashierName: currentUser.name,
-      designerId: designerId || null,
-      operatorId: operatorId || null,
+      designerId: designerId === 'none' ? null : designerId,
+      operatorId: operatorId === 'none' ? null : operatorId,
       paymentAccountId: paymentAccountId || null,
       orderDate: orderDate || new Date(),
       finishDate: finishDate || null,
@@ -275,8 +275,8 @@ export const PosForm = () => {
             <div className="border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Tgl Order</div><DateTimePicker date={orderDate} setDate={setOrderDate} /></div>
               <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Tgl Selesai</div><DateTimePicker date={finishDate} setDate={setFinishDate} /></div>
-              <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Desainer</div><Select value={designerId} onValueChange={setDesignerId}><SelectTrigger className="w-3/5 h-9"><SelectValue placeholder="Pilih Desainer" /></SelectTrigger><SelectContent>{designers?.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select></div>
-              <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Operator</div><Select value={operatorId} onValueChange={setOperatorId}><SelectTrigger className="w-3/5 h-9"><SelectValue placeholder="Pilih Operator" /></SelectTrigger><SelectContent>{operators?.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent></Select></div>
+              <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Desainer</div><Select value={designerId} onValueChange={setDesignerId}><SelectTrigger className="w-3/5 h-9"><SelectValue placeholder="Pilih Desainer" /></SelectTrigger><SelectContent><SelectItem value="none">Tidak Ada</SelectItem>{designers?.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select></div>
+              <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Operator</div><Select value={operatorId} onValueChange={setOperatorId}><SelectTrigger className="w-3/5 h-9"><SelectValue placeholder="Pilih Operator" /></SelectTrigger><SelectContent><SelectItem value="none">Tidak Ada</SelectItem>{operators?.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent></Select></div>
             </div>
           </div>
         </div>

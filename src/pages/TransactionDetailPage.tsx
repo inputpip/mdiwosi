@@ -12,12 +12,16 @@ import { id } from "date-fns/locale/id"
 import { PrintReceiptDialog } from "@/components/PrintReceiptDialog"
 import { useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useNavigate } from "react-router-dom"
+import { useCompanySettings } from "@/hooks/useCompanySettings"
 
 export default function TransactionDetailPage() {
   const { id: transactionId } = useParams<{ id: string }>()
   const { transactions, isLoading } = useTransactions()
   const [isPrintDialogOpen, setIsPrintDialogOpen] = useState(false)
   const [printTemplate, setPrintTemplate] = useState<'receipt' | 'invoice'>('receipt')
+  const navigate = useNavigate()
+  const { settings: companyInfo } = useCompanySettings()
 
   const transaction = transactions?.find(t => t.id === transactionId)
 
@@ -105,6 +109,167 @@ export default function TransactionDetailPage() {
     setIsPrintDialogOpen(true);
   }
 
+  // Fungsi cetak Rawbt Thermal 80mm
+  const handleRawbtPrint = () => {
+    if (!transaction) return;
+
+    const orderDate = transaction.orderDate ? new Date(transaction.orderDate) : null;
+    
+    // Enhanced currency formatting function for large numbers
+    const formatCurrency = (amount: number): string => {
+      // Handle null, undefined, or NaN values
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return "Rp 0";
+      }
+      // Convert string to number if needed
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+      let result = new Intl.NumberFormat("id-ID", { 
+        style: "currency", 
+        currency: "IDR",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(numAmount);
+      
+      // Replace non-breaking space with regular space for thermal printer compatibility
+      result = result.replace(/\u00A0/g, ' ');
+      
+      return result;
+    };
+
+    // Format large numbers without currency symbol for item calculations
+    const formatNumber = (amount: number): string => {
+      // Handle null, undefined, or NaN values
+      if (amount === null || amount === undefined || isNaN(amount)) {
+        return "0";
+      }
+      // Convert string to number if needed
+      const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+      let result = new Intl.NumberFormat("id-ID", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(numAmount);
+      
+      // Replace non-breaking space with regular space for thermal printer compatibility
+      result = result.replace(/\u00A0/g, ' ');
+      
+      return result;
+    };
+    
+    // Format teks untuk printer thermal 80mm sesuai template preview
+    let receiptText = '';
+    
+    // Header - exactly like preview
+    receiptText += '\x1B\x40'; // ESC @ (Initialize printer)
+    receiptText += '\x1B\x61\x01'; // Center alignment
+    receiptText += (companyInfo?.name || 'Nota Transaksi') + '\n';
+    if (companyInfo?.address) {
+      receiptText += companyInfo.address + '\n';
+    }
+    if (companyInfo?.phone) {
+      receiptText += companyInfo.phone + '\n';
+    }
+    receiptText += '\x1B\x61\x00'; // Left alignment
+    
+    // Transaction info section - with border
+    receiptText += '--------------------------------\n';
+    receiptText += `No: ${transaction.id}\n`;
+    receiptText += `Tgl: ${orderDate ? format(orderDate, "dd/MM/yy HH:mm", { locale: id }) : 'N/A'}\n`;
+    receiptText += `Plgn: ${transaction.customerName}\n`;
+    receiptText += `Kasir: ${transaction.cashierName}\n`;
+    receiptText += '--------------------------------\n';
+    
+    // Items header - exactly like preview
+    receiptText += 'Item                        Total\n';
+    receiptText += '--------------------------------\n';
+    
+    // Items - format like preview with enhanced number formatting
+    transaction.items.forEach((item) => {
+      // First line: product name
+      receiptText += item.product.name + '\n';
+      
+      // Second line: quantity x @price, then total on right
+      const qtyPrice = `${item.quantity}x @${formatNumber(item.price)}`;
+      const itemTotal = formatNumber(item.price * item.quantity);
+      
+      // Calculate spacing to align total to right (32 chars total width)
+      const spacing = 32 - qtyPrice.length - itemTotal.length;
+      receiptText += qtyPrice + ' '.repeat(Math.max(0, spacing)) + itemTotal + '\n';
+    });
+    
+    receiptText += '--------------------------------\n';
+    
+    // Subtotal - exactly like preview format with enhanced formatting
+    const subtotalText = 'Subtotal:';
+    const subtotalAmount = formatCurrency(transaction.subtotal);
+    const subtotalSpacing = 32 - subtotalText.length - subtotalAmount.length;
+    receiptText += subtotalText + ' '.repeat(Math.max(0, subtotalSpacing)) + subtotalAmount + '\n';
+    
+    // PPN if enabled
+    if (transaction.ppnEnabled) {
+      const ppnText = `PPN (${transaction.ppnPercentage}%):`;
+      const ppnAmount = formatCurrency(transaction.ppnAmount);
+      const ppnSpacing = 32 - ppnText.length - ppnAmount.length;
+      receiptText += ppnText + ' '.repeat(Math.max(0, ppnSpacing)) + ppnAmount + '\n';
+    }
+    
+    receiptText += '--------------------------------\n';
+    
+    // Total - bold format exactly like preview with enhanced formatting
+    const totalText = 'Total:';
+    const totalAmount = formatCurrency(transaction.total);
+    const totalSpacing = 32 - totalText.length - totalAmount.length;
+    
+    receiptText += '\x1B\x45\x01'; // Bold on
+    receiptText += totalText + ' '.repeat(Math.max(0, totalSpacing)) + totalAmount + '\n';
+    receiptText += '\x1B\x45\x00'; // Bold off
+    
+    receiptText += '--------------------------------\n';
+    
+    // Payment Information
+    const statusText = 'Status:';
+    const statusValue = transaction.paymentStatus;
+    const statusSpacing = 32 - statusText.length - statusValue.length;
+    receiptText += statusText + ' '.repeat(Math.max(0, statusSpacing)) + statusValue + '\n';
+    
+    const paidText = 'Jumlah Bayar:';
+    const paidAmount = formatCurrency(transaction.paidAmount);
+    const paidSpacing = 32 - paidText.length - paidAmount.length;
+    receiptText += paidText + ' '.repeat(Math.max(0, paidSpacing)) + paidAmount + '\n';
+    
+    // Show remaining amount if not fully paid
+    if (transaction.total > transaction.paidAmount) {
+      const remainingText = 'Sisa Tagihan:';
+      const remainingAmount = formatCurrency(transaction.total - transaction.paidAmount);
+      const remainingSpacing = 32 - remainingText.length - remainingAmount.length;
+      receiptText += remainingText + ' '.repeat(Math.max(0, remainingSpacing)) + remainingAmount + '\n';
+    }
+    
+    // Thank you message
+    receiptText += '\n';
+    receiptText += '\x1B\x61\x01'; // Center alignment
+    receiptText += 'Terima kasih!\n';
+    receiptText += '\x1B\x61\x00'; // Left alignment
+    
+    receiptText += '\n\n\n'; // Feed paper
+    receiptText += '\x1D\x56\x41'; // Cut paper
+
+    // Simplified RawBT handling - just try to print and redirect to transaction table
+    const encodedText = encodeURIComponent(receiptText);
+    const rawbtUrl = `rawbt:${encodedText}`;
+    
+    // Try to open RawBT protocol
+    try {
+      window.location.href = rawbtUrl;
+    } catch (error) {
+      console.error('Failed to open RawBT protocol:', error);
+    }
+    
+    // Always redirect to transaction table after print attempt
+    setTimeout(() => {
+      navigate('/transactions'); // Navigate to transactions
+    }, 500);
+  };
+
   return (
     <div className="space-y-6">
       <PrintReceiptDialog 
@@ -137,9 +302,9 @@ export default function TransactionDetailPage() {
             <Printer className="mr-2 h-4 w-4" />
             Cetak Thermal
           </Button>
-          <Button onClick={() => handlePrintClick('invoice')}>
-            <FileDown className="mr-2 h-4 w-4" />
-            Cetak Invoice PDF
+          <Button onClick={handleRawbtPrint}>
+            <Printer className="mr-2 h-4 w-4" />
+            Rawbt Thermal
           </Button>
         </div>
       </div>
@@ -159,10 +324,10 @@ export default function TransactionDetailPage() {
           <Button 
             size="sm" 
             className="flex-1"
-            onClick={() => handlePrintClick('invoice')}
+            onClick={handleRawbtPrint}
           >
-            <FileDown className="mr-2 h-4 w-4" />
-            Cetak Invoice
+            <Printer className="mr-2 h-4 w-4" />
+            Rawbt Thermal
           </Button>
         </div>
       </div>

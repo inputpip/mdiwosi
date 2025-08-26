@@ -146,6 +146,14 @@ const getTypeLabel = (item: CashHistory) => {
 }
 
 const isIncomeType = (item: CashHistory) => {
+  // Handle transfers first
+  if (item.source_type === 'transfer_masuk') {
+    return true;
+  }
+  if (item.source_type === 'transfer_keluar') {
+    return false;
+  }
+
   // Handle new format with 'type' field
   if (item.type) {
     return ['orderan', 'kas_masuk_manual', 'panjar_pelunasan', 'pemutihan_piutang'].includes(item.type);

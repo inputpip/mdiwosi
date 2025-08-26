@@ -9,10 +9,13 @@ import AppErrorBoundary from "@/components/AppErrorBoundary";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 3,
+      retry: 1,                          // hanya coba sekali jika error
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
+      staleTime: 60 * 1000,              // cache fresh selama 1 menit
+      gcTime: 5 * 60 * 1000,             // garbage collect setelah 5 menit
+      refetchOnWindowFocus: false,       // matikan refetch saat pindah tab
+      refetchOnReconnect: false,         // matikan refetch saat reconnect
+      refetchInterval: false,            // matikan polling
     },
     mutations: {
       retry: 1,

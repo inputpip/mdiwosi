@@ -83,7 +83,13 @@ export const useTransactions = () => {
         .order('created_at', { ascending: false });
       if (error) throw new Error(error.message);
       return data ? data.map(fromDb) : [];
-    }
+    },
+    staleTime: 60 * 1000,              // cache fresh selama 1 menit
+    gcTime: 5 * 60 * 1000,             // garbage collect setelah 5 menit
+    refetchOnWindowFocus: false,       // matikan refetch saat pindah tab
+    refetchOnReconnect: false,         // matikan refetch saat reconnect
+    refetchInterval: false,            // matikan polling
+    retry: 1,                          // hanya coba sekali jika error
   })
 
   const addTransaction = useMutation({
@@ -340,6 +346,12 @@ export const useTransactionById = (id: string) => {
       return fromDb(data);
     },
     enabled: !!id,
+    staleTime: 60 * 1000,              // cache fresh selama 1 menit
+    gcTime: 5 * 60 * 1000,             // garbage collect setelah 5 menit
+    refetchOnWindowFocus: false,       // matikan refetch saat pindah tab
+    refetchOnReconnect: false,         // matikan refetch saat reconnect
+    refetchInterval: false,            // matikan polling
+    retry: 1,                          // hanya coba sekali jika error
   });
   return { transaction, isLoading };
 }
@@ -356,6 +368,12 @@ export const useTransactionsByCustomer = (customerId: string) => {
             return data ? data.map(fromDb) : [];
         },
         enabled: !!customerId,
+        staleTime: 60 * 1000,              // cache fresh selama 1 menit
+        gcTime: 5 * 60 * 1000,             // garbage collect setelah 5 menit
+        refetchOnWindowFocus: false,       // matikan refetch saat pindah tab
+        refetchOnReconnect: false,         // matikan refetch saat reconnect
+        refetchInterval: false,            // matikan polling
+        retry: 1,                          // hanya coba sekali jika error
     });
     return { transactions, isLoading };
 }

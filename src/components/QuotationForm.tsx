@@ -145,7 +145,7 @@ export const QuotationForm = () => {
             <TableBody>
               {items.map((item, index) => (
                 <TableRow key={item.id}>
-                  <TableCell className="min-w-[200px]"><Select onValueChange={(v) => handleItemChange(index, 'product', products?.find(p => p.id === v))} value={item.product?.id || ""}><SelectTrigger><SelectValue placeholder="Pilih Produk" /></SelectTrigger><SelectContent>{isLoadingProducts ? <SelectItem value="loading" disabled>Memuat...</SelectItem> : products?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></TableCell>
+                  <TableCell className="min-w-[200px]"><Select onValueChange={(v) => handleItemChange(index, 'product', v === 'none' ? null : products?.find(p => p.id === v))} value={item.product?.id || "none"}><SelectTrigger><SelectValue placeholder="Pilih Produk" /></SelectTrigger><SelectContent><SelectItem value="none">Pilih Produk</SelectItem>{isLoadingProducts ? <SelectItem value="loading" disabled>Memuat...</SelectItem> : products?.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></TableCell>
                   <TableCell className="min-w-[200px]"><Input value={item.keterangan} onChange={(e) => handleItemChange(index, 'keterangan', e.target.value)} placeholder="Detail, ukuran, dll." /></TableCell>
                   <TableCell className="min-w-[80px]"><Input type="number" value={item.qty} onChange={(e) => handleItemChange(index, 'qty', Number(e.target.value))} /></TableCell>
                   <TableCell className="min-w-[120px]"><Input value={item.unit} onChange={(e) => handleItemChange(index, 'unit', e.target.value)} placeholder="pcs, m², etc" /></TableCell>

@@ -302,9 +302,12 @@ export const ProductManagement = ({ materials = [] }: ProductManagementProps) =>
                   {formData.materials.map((bom, index) => (
                     <TableRow key={index}>
                       <TableCell>
-                        <Select value={bom.materialId || ""} onValueChange={(v) => handleBomChange(index, 'materialId', v)}>
+                        <Select value={bom.materialId || "none"} onValueChange={(v) => handleBomChange(index, 'materialId', v === 'none' ? '' : v)}>
                           <SelectTrigger><SelectValue placeholder="Pilih Bahan" /></SelectTrigger>
-                          <SelectContent>{materials.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>)}</SelectContent>
+                          <SelectContent>
+                            <SelectItem value="none">Pilih Bahan</SelectItem>
+                            {materials.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>)}
+                          </SelectContent>
                         </Select>
                       </TableCell>
                       <TableCell><Input type="number" step="any" placeholder="Jumlah" value={bom.quantity} onChange={(e) => handleBomChange(index, 'quantity', Number(e.target.value))} /></TableCell>
