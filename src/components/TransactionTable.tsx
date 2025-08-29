@@ -9,7 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { MoreHorizontal, PlusCircle, FileDown, Trash2, Search, X, Filter } from "lucide-react"
+import { MoreHorizontal, PlusCircle, FileDown, Trash2, Search, X, Filter, Edit } from "lucide-react"
 import * as XLSX from "xlsx"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
@@ -57,6 +57,8 @@ import { Skeleton } from "./ui/skeleton"
 import { useAuth } from "@/hooks/useAuth"
 import { UserRole } from "@/types/user"
 import { DateRangePicker } from "./ui/date-range-picker"
+import { usePermissions } from "@/hooks/usePermissions"
+import { EditTransactionDialog } from "./EditTransactionDialog"
 
 const statusOptions: TransactionStatus[] = ['Pesanan Masuk', 'Proses Design', 'ACC Costumer', 'Proses Produksi', 'Pesanan Selesai'];
 
@@ -102,11 +104,14 @@ export function TransactionTable() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { canEditTransactions, canDeleteTransactions } = usePermissions();
   const { transactions, isLoading, updateTransactionStatus, deductMaterials, deleteTransaction } = useTransactions();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedTransaction, setSelectedTransaction] = React.useState<Transaction | null>(null);
   const [isCancelWarningOpen, setIsCancelWarningOpen] = React.useState(false);
   const [cancelTransactionData, setCancelTransactionData] = React.useState<{id: string, status: TransactionStatus} | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
+  const [editTransaction, setEditTransaction] = React.useState<Transaction | null>(null);
   
   // State preservation for better UX when updating status
   const [savedScrollPosition, setSavedScrollPosition] = React.useState(0);
@@ -217,6 +222,11 @@ export function TransactionTable() {
     setIsDeleteDialogOpen(true);
   };
 
+  const handleEditClick = (transaction: Transaction) => {
+    setEditTransaction(transaction);
+    setIsEditDialogOpen(true);
+  };
+
   const confirmDelete = () => {
     if (selectedTransaction) {
       deleteTransaction.mutate(selectedTransaction.id, {
@@ -248,7 +258,14 @@ export function TransactionTable() {
         const dateValue = row.getValue("orderDate");
         if (!dateValue) return "N/A";
         const date = new Date(dateValue as string | number | Date);
-        return format(date, "d MMM yyyy, HH:mm", { locale: id });
+        // Use local time (JavaScript already converted UTC to WIT automatically)
+        const day = date.getDate();
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const month = months[date.getMonth()];
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${day} ${month} ${year}, ${hours}:${minutes}`;
       },
     },
     {
@@ -371,7 +388,13 @@ export function TransactionTable() {
             <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               <DropdownMenuLabel>Aksi</DropdownMenuLabel>
               <DropdownMenuItem onClick={() => navigate(`/transactions/${transaction.id}`)}>Lihat Detail</DropdownMenuItem>
-              {user && user.role === 'owner' && (
+              {canEditTransactions() && (
+                <DropdownMenuItem onClick={() => handleEditClick(transaction)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit Transaksi
+                </DropdownMenuItem>
+              )}
+              {canDeleteTransactions() && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -820,6 +843,13 @@ export function TransactionTable() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Transaction Dialog */}
+      <EditTransactionDialog 
+        open={isEditDialogOpen} 
+        onOpenChange={setIsEditDialogOpen}
+        transaction={editTransaction}
+      />
     </div>
   )
 }

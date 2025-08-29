@@ -142,6 +142,11 @@ export const usePermissions = () => {
   const canEditMaterials = () => hasPermission('materials_edit')
   const canDeleteMaterials = () => hasPermission('materials_delete')
   
+  const canViewTransactions = () => hasPermission('transactions_view')
+  const canCreateTransactions = () => hasPermission('transactions_create')
+  const canEditTransactions = () => hasPermission('transactions_edit')
+  const canDeleteTransactions = () => hasPermission('transactions_delete')
+  
   const canAccessPOS = () => hasPermission('pos_access')
   const canManageRoles = () => hasPermission('role_management')
   const canAccessSettings = () => hasPermission('settings_access')
@@ -159,6 +164,11 @@ export const usePermissions = () => {
     canCreateMaterials,
     canEditMaterials,
     canDeleteMaterials,
+    // Transaction permissions
+    canViewTransactions,
+    canCreateTransactions,
+    canEditTransactions,
+    canDeleteTransactions,
     // System permissions
     canAccessPOS,
     canManageRoles,

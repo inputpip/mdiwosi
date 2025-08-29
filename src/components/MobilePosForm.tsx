@@ -26,6 +26,7 @@ import { AddCustomerDialog } from './AddCustomerDialog'
 import { PrintReceiptDialog } from './PrintReceiptDialog'
 import { DateTimePicker } from './ui/datetime-picker'
 import { useAuth } from '@/hooks/useAuth'
+import { id } from 'date-fns/locale/id'
 import { User } from '@/types/user'
 import { Quotation } from '@/types/quotation'
 import { useCustomers } from '@/hooks/useCustomers'
@@ -69,6 +70,23 @@ export const MobilePosForm = () => {
   const [openProductDropdowns, setOpenProductDropdowns] = useState<{[key: number]: boolean}>({});
   const [isItemsSheetOpen, setIsItemsSheetOpen] = useState(false);
   const [isPaymentSheetOpen, setIsPaymentSheetOpen] = useState(false);
+
+  const handlePrintDialogClose = (open: boolean) => {
+    setIsPrintDialogOpen(open);
+    if (!open && savedTransaction) {
+      // Redirect and reset form after print dialog closes
+      navigate('/transactions');
+      
+      // Reset form
+      setSelectedCustomer(null);
+      setItems([]);
+      setDiskon(0);
+      setPaidAmount(0);
+      setPaymentAccountId('');
+      setSourceQuotationId(null);
+      setSavedTransaction(null);
+    }
+  };
 
   useEffect(() => {
     const quotationData = location.state?.quotationData as Quotation | undefined;
@@ -162,7 +180,7 @@ export const MobilePosForm = () => {
       designerId: designerId || null,
       operatorId: operatorId || null,
       paymentAccountId: paymentAccountId || null,
-      orderDate: orderDate || new Date(),
+      orderDate: new Date(), // Auto timestamp
       finishDate: finishDate || null,
       items: transactionItems,
       total: totalTagihan,
@@ -180,16 +198,8 @@ export const MobilePosForm = () => {
         setSavedTransaction(savedData);
         toast({ title: "Sukses", description: "Transaksi berhasil disimpan." });
         
-        // Redirect to transaction list page after successful save
-        navigate('/transactions');
-        
-        // Reset form
-        setSelectedCustomer(null);
-        setItems([]);
-        setDiskon(0);
-        setPaidAmount(0);
-        setPaymentAccountId('');
-        setSourceQuotationId(null);
+        // Show print dialog
+        setIsPrintDialogOpen(true);
       },
       onError: (error) => {
         toast({ variant: "destructive", title: "Gagal Menyimpan", description: error.message });
@@ -201,7 +211,7 @@ export const MobilePosForm = () => {
     <div className="space-y-4">
       <CustomerSearchDialog open={isCustomerSearchOpen} onOpenChange={setIsCustomerSearchOpen} onCustomerSelect={setSelectedCustomer} />
       <AddCustomerDialog open={isCustomerAddOpen} onOpenChange={setIsCustomerAddOpen} onCustomerAdded={setSelectedCustomer} />
-      {savedTransaction && <PrintReceiptDialog open={isPrintDialogOpen} onOpenChange={setIsPrintDialogOpen} transaction={savedTransaction} template="receipt" />}
+      {savedTransaction && <PrintReceiptDialog open={isPrintDialogOpen} onOpenChange={handlePrintDialogClose} transaction={savedTransaction} template="receipt" />}
       
       {/* Header */}
       <Card>
@@ -287,7 +297,7 @@ export const MobilePosForm = () => {
                         <div>
                           <Label className="text-sm">Produk</Label>
                           <Popover 
-                            open={openProductDropdowns[index]} 
+                            open={openProductDropdowns[index] || false} 
                             onOpenChange={(open) => setOpenProductDropdowns({...openProductDropdowns, [index]: open})}
                           >
                             <PopoverTrigger asChild>

@@ -220,7 +220,7 @@ export function DateRangeReportPDF({ cashHistory }: DateRangeReportPDFProps) {
         ['Saldo Sebelumnya', formatCurrency(data.previousBalance)],
         ['Kas Masuk Hari Ini', formatCurrency(data.dateIncome)],
         ['Kas Keluar Hari Ini', formatCurrency(data.dateExpense)],
-        ['Arus Kas Bersih', formatCurrency(data.dateNet)],
+        ['Kas Bersih', formatCurrency(data.dateNet)],
         ['Saldo Saat Ini', formatCurrency(data.currentBalance)]
       ];
 

@@ -115,7 +115,11 @@ export const usePurchaseOrders = () => {
         .eq('id', po.materialId)
         .single();
       
-      if (materialError) throw materialError;
+      if (materialError) {
+        console.error('Material query error:', materialError);
+        console.error('Looking for material ID:', po.materialId);
+        throw new Error(`Material not found: ${materialError.message}`);
+      }
 
       const previousStock = Number(material.current_stock) || 0;
       const newStock = previousStock + po.quantity;

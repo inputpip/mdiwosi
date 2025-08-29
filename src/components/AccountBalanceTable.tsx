@@ -102,7 +102,7 @@ export function AccountBalanceTable({ data, isLoading }: AccountBalanceTableProp
     },
     {
       accessorKey: "todayNet",
-      header: "Arus Kas Hari Ini",
+      header: "Kas Hari Ini",
       cell: ({ row }) => {
         const amount = row.getValue("todayNet") as number;
         const isPositive = amount >= 0;

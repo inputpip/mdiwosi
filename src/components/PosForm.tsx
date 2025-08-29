@@ -27,6 +27,7 @@ import { AddCustomerDialog } from './AddCustomerDialog'
 import { PrintReceiptDialog } from './PrintReceiptDialog'
 import { DateTimePicker } from './ui/datetime-picker'
 import { useAuth } from '@/hooks/useAuth'
+import { id } from 'date-fns/locale/id'
 import { User } from '@/types/user'
 import { Quotation } from '@/types/quotation'
 import { useCustomers } from '@/hooks/useCustomers'
@@ -189,7 +190,7 @@ export const PosForm = () => {
       designerId: designerId === 'none' ? null : designerId,
       operatorId: operatorId === 'none' ? null : operatorId,
       paymentAccountId: paymentAccountId || null,
-      orderDate: orderDate || new Date(),
+      orderDate: new Date(), // Auto timestamp
       finishDate: finishDate || null,
       items: transactionItems,
       subtotal: ppnCalculation.subtotal,
@@ -273,7 +274,7 @@ export const PosForm = () => {
 
           <div className="space-y-4">
             <div className="border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Tgl Order</div><DateTimePicker date={orderDate} setDate={setOrderDate} /></div>
+              <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Tgl Order</div><div className="p-2 bg-muted rounded text-sm"><span className="font-medium">{format(new Date(), 'd MMM yyyy, HH:mm', { locale: id })}</span> <span className="text-muted-foreground">(Otomatis)</span></div></div>
               <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Tgl Selesai</div><DateTimePicker date={finishDate} setDate={setFinishDate} /></div>
               <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Desainer</div><Select value={designerId} onValueChange={setDesignerId}><SelectTrigger className="w-3/5 h-9"><SelectValue placeholder="Pilih Desainer" /></SelectTrigger><SelectContent><SelectItem value="none">Tidak Ada</SelectItem>{designers?.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent></Select></div>
               <div className="flex items-center"><div className="w-2/5 text-sm font-semibold p-2 flex items-center justify-center shrink-0">Operator</div><Select value={operatorId} onValueChange={setOperatorId}><SelectTrigger className="w-3/5 h-9"><SelectValue placeholder="Pilih Operator" /></SelectTrigger><SelectContent><SelectItem value="none">Tidak Ada</SelectItem>{operators?.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}</SelectContent></Select></div>
@@ -294,7 +295,7 @@ export const PosForm = () => {
                 {items.map((item, index) => (
                   <TableRow key={item.id}>
                     <TableCell className="min-w-[200px]">
-                      <Popover open={openProductDropdowns[index]} onOpenChange={(open) => setOpenProductDropdowns({...openProductDropdowns, [index]: open})}>
+                      <Popover open={openProductDropdowns[index] || false} onOpenChange={(open) => setOpenProductDropdowns({...openProductDropdowns, [index]: open})}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"

@@ -9,6 +9,7 @@ import { ArrowLeft, Printer, FileDown, Calendar, User, Package, CreditCard } fro
 import { useTransactions } from "@/hooks/useTransactions"
 import { format } from "date-fns"
 import { id } from "date-fns/locale/id"
+import { formatLocalDate, formatLocalDateShort } from "@/utils/dateUtils"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useCompanySettings } from "@/hooks/useCompanySettings"
 import { useNavigate } from "react-router-dom"
@@ -137,7 +138,7 @@ export default function TransactionDetailPage() {
     // Invoice header
     doc.setFontSize(22).setFont("helvetica", "bold").setTextColor(150).text("INVOICE", pageWidth - margin, 32, { align: 'right' });
     const orderDate = transaction.orderDate ? new Date(transaction.orderDate) : new Date();
-    doc.setFontSize(11).setTextColor(0).text(`No: ${transaction.id}`, pageWidth - margin, 38, { align: 'right' }).text(`Tanggal: ${format(orderDate, "d MMMM yyyy", { locale: id })}`, pageWidth - margin, 43, { align: 'right' });
+    doc.setFontSize(11).setTextColor(0).text(`No: ${transaction.id}`, pageWidth - margin, 38, { align: 'right' }).text(`Tanggal: ${formatLocalDate(orderDate, 'long').split(',')[0]}`, pageWidth - margin, 43, { align: 'right' });
     
     // Customer info
     let y = 55;
@@ -219,7 +220,7 @@ export default function TransactionDetailPage() {
         </header>
         <div class="text-xs space-y-0.5 my-2 border-y border-dashed border-black py-1">
           <div class="flex justify-between"><span>No:</span> <strong>${transaction.id}</strong></div>
-          <div class="flex justify-between"><span>Tgl:</span> <span>${transaction.orderDate ? format(new Date(transaction.orderDate), "dd/MM/yy HH:mm", { locale: id }) : 'N/A'}</span></div>
+          <div class="flex justify-between"><span>Tgl:</span> <span>${transaction.orderDate ? formatLocalDateShort(new Date(transaction.orderDate)) : 'N/A'}</span></div>
           <div class="flex justify-between"><span>Plgn:</span> <span>${transaction.customerName}</span></div>
           <div class="flex justify-between"><span>Kasir:</span> <span>${transaction.cashierName}</span></div>
         </div>
@@ -451,7 +452,7 @@ export default function TransactionDetailPage() {
           <div class="text-right">
             <h2 class="text-4xl font-bold uppercase text-gray-300">INVOICE</h2>
             <p class="text-lg text-gray-600"><strong class="text-gray-800">No:</strong> ${transaction.id}</p>
-            <p class="text-lg text-gray-600"><strong class="text-gray-800">Tanggal:</strong> ${transaction.orderDate ? format(new Date(transaction.orderDate), "d MMMM yyyy", { locale: id }) : 'N/A'}</p>
+            <p class="text-lg text-gray-600"><strong class="text-gray-800">Tanggal:</strong> ${transaction.orderDate ? formatLocalDate(new Date(transaction.orderDate), 'long').split(',')[0] : 'N/A'}</p>
           </div>
         </header>
         <div class="mb-4">
@@ -687,7 +688,7 @@ export default function TransactionDetailPage() {
     receiptText += '\x1B\x61\x00';
     receiptText += '--------------------------------\n';
     receiptText += `No: ${transaction.id}\n`;
-    receiptText += `Tgl: ${orderDate ? format(orderDate, "dd/MM/yy HH:mm", { locale: id }) : 'N/A'}\n`;
+    receiptText += `Tgl: ${orderDate ? formatLocalDateShort(orderDate) : 'N/A'}\n`;
     receiptText += `Plgn: ${transaction.customerName}\n`;
     receiptText += `Kasir: ${transaction.cashierName}\n`;
     receiptText += '--------------------------------\n';
@@ -920,7 +921,7 @@ export default function TransactionDetailPage() {
                   <div>
                     <p className="text-sm font-medium">Tanggal Order</p>
                     <p className="text-sm text-muted-foreground">
-                      {transaction.orderDate ? format(new Date(transaction.orderDate), "d MMMM yyyy, HH:mm", { locale: id }) : 'N/A'}
+                      {transaction.orderDate ? formatLocalDate(new Date(transaction.orderDate), 'long') : 'N/A'}
                     </p>
                   </div>
                 </div>
@@ -930,7 +931,7 @@ export default function TransactionDetailPage() {
                   <div>
                     <p className="text-sm font-medium">Target Selesai</p>
                     <p className="text-sm text-muted-foreground">
-                      {transaction.finishDate ? format(new Date(transaction.finishDate), "d MMMM yyyy, HH:mm", { locale: id }) : 'Belum ditentukan'}
+                      {transaction.finishDate ? formatLocalDate(new Date(transaction.finishDate), 'long') : 'Belum ditentukan'}
                     </p>
                   </div>
                 </div>
@@ -1132,18 +1133,6 @@ export default function TransactionDetailPage() {
         </div>
       </div>
 
-      {/* Mobile Floating Print Button - Alternative option */}
-      <div className="md:hidden fixed bottom-6 right-4 z-20">
-        <div className="flex flex-col gap-2">
-          <Button
-            size="lg"
-            className="rounded-full shadow-lg"
-            onClick={() => handlePrintClick('receipt')}
-          >
-            <Printer className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
     </div>
   )
 }

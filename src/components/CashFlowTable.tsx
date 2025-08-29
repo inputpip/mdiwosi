@@ -547,8 +547,8 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
     
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Arus Kas");
-    XLSX.writeFile(workbook, "arus-kas.xlsx");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Buku Besar");
+    XLSX.writeFile(workbook, "buku-besar.xlsx");
   };
 
   const handleExportPdf = () => {
@@ -638,7 +638,7 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
         </div>
         <div className={`border rounded-lg p-4 ${summary.netFlow >= 0 ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
           <div className={`text-sm font-medium ${summary.netFlow >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>
-            Arus Kas Bersih
+            Kas Bersih
           </div>
           <div className={`text-2xl font-bold ${summary.netFlow >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
             {new Intl.NumberFormat("id-ID", {
@@ -798,9 +798,9 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Data Arus Kas</AlertDialogTitle>
+            <AlertDialogTitle>Hapus Data Buku Besar</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus data arus kas ini? 
+              Apakah Anda yakin ingin menghapus data buku besar ini? 
               <br /><br />
               <strong>Deskripsi:</strong> {selectedRecord?.description}
               <br />

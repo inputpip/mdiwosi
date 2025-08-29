@@ -48,7 +48,7 @@ export function Header() {
     { href: "/products", label: "Produk", icon: Package, permission: "products_view" },
     { href: "/materials", label: "Bahan Baku", icon: FlaskConical, permission: "materials_view" },
     { href: "/customers", label: "Pelanggan", icon: Users, permission: "customers_view" },
-    { href: "/cash-flow", label: "Arus Kas", icon: TrendingUp, permission: "financial_reports" },
+    { href: "/cash-flow", label: "Buku Besar", icon: TrendingUp, permission: "financial_reports" },
     { href: "/receivables", label: "Piutang", icon: HandCoins, permission: "receivables_view" },
     { href: "/stock-report", label: "Laporan", icon: BarChart3, permission: "stock_reports" },
   ].filter(item => !item.permission || hasPermission(item.permission));

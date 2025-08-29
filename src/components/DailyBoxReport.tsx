@@ -95,7 +95,7 @@ export function DailyBoxReport() {
         ${dailyReport.cashFlowByAccount.length > 0 ? `
           <div style="margin-bottom: 30px;">
             <h3 style="margin: 0 0 15px 0; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
-              Arus Kas per Akun
+              Kas per Akun
             </h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
               <thead>
@@ -453,7 +453,7 @@ export function DailyBoxReport() {
           {dailyReport.cashFlowByAccount.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Arus Kas per Akun</CardTitle>
+                <CardTitle>Kas per Akun</CardTitle>
                 <CardDescription>Akun yang memiliki transaksi hari ini</CardDescription>
               </CardHeader>
               <CardContent>

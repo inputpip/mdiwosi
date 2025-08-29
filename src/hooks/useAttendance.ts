@@ -16,8 +16,8 @@ export const useAttendance = () => {
         .from('attendance')
         .select('*')
         .eq('user_id', user.id)
-        .gte('check_in_time', startOfToday().toISOString())
-        .lte('check_in_time', endOfToday().toISOString())
+        .gte('check_in_time', startOfToday(new Date()).toISOString())
+        .lte('check_in_time', endOfToday(new Date()).toISOString())
         .single();
       if (error && error.code !== 'PGRST116') { // Ignore 'single row not found' error
         throw new Error(error.message);

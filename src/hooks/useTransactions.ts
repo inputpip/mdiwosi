@@ -285,6 +285,25 @@ export const useTransactions = () => {
     }
   });
 
+  const updateTransaction = useMutation({
+    mutationFn: async (updatedTransaction: Transaction) => {
+      const { error } = await supabase
+        .from('transactions')
+        .update(toDb(updatedTransaction))
+        .eq('id', updatedTransaction.id);
+        
+      if (error) throw new Error(error.message);
+      
+      return updatedTransaction;
+    },
+    onSuccess: (updatedTransaction) => {
+      queryClient.setQueryData(['transactions'], (oldData: Transaction[] | undefined) => {
+        return oldData ? oldData.map(t => t.id === updatedTransaction.id ? updatedTransaction : t) : [];
+      });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+    }
+  });
+
   const deleteTransaction = useMutation({
     mutationFn: async (transactionId: string) => {
       // Delete related cash_history records first
@@ -327,7 +346,7 @@ export const useTransactions = () => {
     },
   });
 
-  return { transactions, isLoading, addTransaction, payReceivable, writeOffReceivable, updateTransactionStatus, deductMaterials, deleteTransaction }
+  return { transactions, isLoading, addTransaction, payReceivable, writeOffReceivable, updateTransaction, updateTransactionStatus, deductMaterials, deleteTransaction }
 }
 
 export const useTransactionById = (id: string) => {
