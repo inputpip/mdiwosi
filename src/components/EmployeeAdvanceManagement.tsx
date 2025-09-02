@@ -33,11 +33,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { PaidAdvancesTable } from "./TodayEmployeeAdvancePayments"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const advanceSchema = z.object({
   employeeId: z.string().min(1, "Karyawan harus dipilih."),
   amount: z.coerce.number().min(1000, "Jumlah minimal Rp 1.000."),
-  date: z.date({ required_error: "Tanggal harus diisi." }),
   notes: z.string().optional(),
   accountId: z.string().min(1, "Sumber dana harus dipilih."),
 })
@@ -58,7 +59,6 @@ export function EmployeeAdvanceManagement() {
     defaultValues: {
       employeeId: "",
       amount: 0,
-      date: new Date(),
       notes: "",
       accountId: "",
     }
@@ -77,7 +77,7 @@ export function EmployeeAdvanceManagement() {
     const newAdvanceData = {
       employeeId: data.employeeId,
       amount: data.amount,
-      date: data.date,
+      date: new Date(), // Selalu gunakan waktu saat ini
       notes: data.notes,
       accountId: data.accountId,
       employeeName: employee.name,
@@ -87,7 +87,7 @@ export function EmployeeAdvanceManagement() {
     addAdvance.mutate(newAdvanceData, {
       onSuccess: () => {
         toast({ title: "Sukses", description: "Panjar berhasil dicatat." })
-        reset({ date: new Date(), amount: 0, employeeId: '', notes: '', accountId: '' })
+        reset({ amount: 0, employeeId: '', notes: '', accountId: '' })
       },
       onError: (error) => {
         toast({ variant: "destructive", title: "Gagal", description: error.message })
@@ -143,6 +143,14 @@ export function EmployeeAdvanceManagement() {
   return (
     <div className="space-y-6">
       <RepayAdvanceDialog open={isRepayDialogOpen} onOpenChange={setIsRepayDialogOpen} advance={selectedAdvance} />
+      
+      <Tabs defaultValue="active" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="active">Panjar Aktif</TabsTrigger>
+          <TabsTrigger value="completed">Riwayat Lunas</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="active" className="space-y-6">
 
       {isAdminOrOwnerOrCashier && (
         <Card>
@@ -152,7 +160,7 @@ export function EmployeeAdvanceManagement() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onAddAdvanceSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="employeeId">Karyawan</Label>
                   <Select onValueChange={(value) => setValue("employeeId", value)}>
@@ -173,11 +181,6 @@ export function EmployeeAdvanceManagement() {
                     <SelectContent>{loadingAccounts ? <SelectItem value="loading" disabled>Memuat...</SelectItem> : accounts?.filter(a => a.isPaymentAccount).map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
                   </Select>
                   {errors.accountId && <p className="text-sm text-destructive">{errors.accountId.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="date">Tanggal</Label>
-                  <Input type="date" {...register("date", { valueAsDate: true })} defaultValue={format(new Date(), 'yyyy-MM-dd')} />
-                  {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                 </div>
               </div>
               <div className="space-y-2">
@@ -306,6 +309,12 @@ export function EmployeeAdvanceManagement() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+        
+        <TabsContent value="completed">
+          <PaidAdvancesTable />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

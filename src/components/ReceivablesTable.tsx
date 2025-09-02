@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Transaction } from "@/types/transaction"
 import { useTransactions } from "@/hooks/useTransactions"
-// import { usePaymentHistoryBatch } from "@/hooks/usePaymentHistory" // Removed
+import { usePaymentHistoryBatch } from "@/hooks/usePaymentHistory"
 import { format } from "date-fns"
 import { id } from "date-fns/locale/id"
 import { PayReceivableDialog } from "./PayReceivableDialog"
-// import { PaymentHistoryRow } from "./PaymentHistoryRow" // Removed
+import { PaymentHistoryRow } from "./PaymentHistoryRow"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu"
 import { MoreHorizontal, ChevronDown, ChevronRight, CheckCircle, Clock, AlertTriangle } from "lucide-react"
 import { useAuthContext } from "@/contexts/AuthContext"
@@ -34,9 +34,10 @@ export function ReceivablesTable() {
     return receivables.map(r => r.id)
   }, [receivables])
 
-  // const { paymentHistories, isLoading: isLoadingHistory } = usePaymentHistoryBatch(receivableIds) // Removed
-  const paymentHistories: any[] = [];
-  const isLoadingHistory = false;
+  // Temporarily disable payment history due to 400 error
+  // const { paymentHistories, isLoading: isLoadingHistory } = usePaymentHistoryBatch(receivableIds)
+  const paymentHistories: any = {}
+  const isLoadingHistory = false
 
   const handlePayClick = (transaction: Transaction) => {
     setSelectedTransaction(transaction)
@@ -80,8 +81,10 @@ export function ReceivablesTable() {
       cell: ({ row }) => {
         const isExpanded = expandedRows.has(row.original.id)
         const hasPaymentHistory = paymentHistories[row.original.id]?.length > 0
+        const hasPaidAmount = (row.original.paidAmount || 0) > 0
         
-        return hasPaymentHistory ? (
+        // Show expand button if there's paid amount (indicating there should be payment history)
+        return hasPaidAmount ? (
           <Button
             variant="ghost"
             size="sm"
@@ -217,11 +220,10 @@ export function ReceivablesTable() {
                     </TableRow>
                     {expandedRows.has(row.original.id) && (
                       <TableRow>
-                        <TableCell colSpan={columns.length} className="p-4 bg-muted/30">
-                          <div className="text-sm text-muted-foreground">
-                            Riwayat pembayaran tidak tersedia - fitur telah dihapus
-                          </div>
-                        </TableCell>
+                        <PaymentHistoryRow 
+                          transactionId={row.original.id} 
+                          colSpan={columns.length} 
+                        />
                       </TableRow>
                     )}
                   </React.Fragment>

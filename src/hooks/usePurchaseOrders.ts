@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client'
 import { useExpenses } from './useExpenses'
 import { useMaterials } from './useMaterials'
 import { useMaterialMovements } from './useMaterialMovements'
+import { useAuthContext } from '@/contexts/AuthContext'
 
 const fromDb = (dbPo: any): PurchaseOrder => ({
   id: dbPo.id,
@@ -36,6 +37,7 @@ const toDb = (appPo: Partial<PurchaseOrder>) => ({
 
 export const usePurchaseOrders = () => {
   const queryClient = useQueryClient();
+  const { user } = useAuthContext();
   const { addExpense } = useExpenses();
   const { addStock } = useMaterials();
   const { createMaterialMovement } = useMaterialMovements();
@@ -111,7 +113,7 @@ export const usePurchaseOrders = () => {
       // Get current material data including type
       const { data: material, error: materialError } = await supabase
         .from('materials')
-        .select('current_stock, name, type')
+        .select('stock, name, type')
         .eq('id', po.materialId)
         .single();
       
@@ -121,7 +123,7 @@ export const usePurchaseOrders = () => {
         throw new Error(`Material not found: ${materialError.message}`);
       }
 
-      const previousStock = Number(material.current_stock) || 0;
+      const previousStock = Number(material.stock) || 0;
       const newStock = previousStock + po.quantity;
 
       // Determine movement type based on material type
@@ -143,7 +145,7 @@ export const usePurchaseOrders = () => {
         referenceId: po.id,
         referenceType: 'purchase_order',
         notes: notes,
-        userId: po.requestedBy,
+        userId: user?.id || '',
         userName: po.requestedBy,
       });
 

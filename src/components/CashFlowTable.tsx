@@ -51,6 +51,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MoreHorizontal, Trash2 } from "lucide-react"
 import { TransferAccountDialog } from "./TransferAccountDialog"
 import { DateRangePicker } from "./ui/date-range-picker"
@@ -59,6 +60,11 @@ const getTypeVariant = (item: CashHistory) => {
   // Handle transfers with special color
   if (item.source_type === 'transfer_masuk' || item.source_type === 'transfer_keluar') {
     return 'secondary'; // Different color for transfers
+  }
+
+  // Handle employee advance repayment (success - income)
+  if (item.source_type === 'employee_advance_repayment') {
+    return 'success';
   }
 
   // Handle new format with 'type' field
@@ -125,6 +131,8 @@ const getTypeLabel = (item: CashHistory) => {
         return 'Pengeluaran Manual';
       case 'employee_advance':
         return 'Panjar Karyawan';
+      case 'employee_advance_repayment':
+        return 'Pelunasan Panjar Karyawan';
       case 'po_payment':
         return 'Pembayaran PO';
       case 'receivables_writeoff':
@@ -145,6 +153,16 @@ const getTypeLabel = (item: CashHistory) => {
   return 'Tidak Diketahui';
 }
 
+// Get all available transaction type options
+const getAllTransactionTypes = (data: CashHistory[]) => {
+  const types = new Set<string>();
+  data.forEach(item => {
+    const typeLabel = getTypeLabel(item);
+    types.add(typeLabel);
+  });
+  return Array.from(types).sort();
+}
+
 const isIncomeType = (item: CashHistory) => {
   // Handle transfers first
   if (item.source_type === 'transfer_masuk') {
@@ -152,6 +170,11 @@ const isIncomeType = (item: CashHistory) => {
   }
   if (item.source_type === 'transfer_keluar') {
     return false;
+  }
+
+  // Handle employee advance repayment (income)
+  if (item.source_type === 'employee_advance_repayment') {
+    return true;
   }
 
   // Handle new format with 'type' field
@@ -180,14 +203,22 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
   const { toast } = useToast();
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false);
   const [selectedRecord, setSelectedRecord] = React.useState<CashHistory | null>(null);
+  const [transactionTypeFilter, setTransactionTypeFilter] = React.useState<string>("all");
+  
+  // Get available transaction types from data
+  const availableTransactionTypes = React.useMemo(() => {
+    return getAllTransactionTypes(data || []);
+  }, [data]);
 
-  // Debug logging
+  // Debug logging for employee advances (reduced)
   React.useEffect(() => {
-    console.log('CashFlowTable received data:', data);
-    console.log('Data length:', data?.length);
-    console.log('Employee advances in data:', data?.filter(item => item.source_type === 'employee_advance'));
-    console.log('isLoading:', isLoading);
-  }, [data, isLoading]);
+    if (data) {
+      const employeeAdvances = data.filter(item => item.source_type === 'employee_advance');
+      if (employeeAdvances.length > 0) {
+        console.log('Employee advances in table:', employeeAdvances.length);
+      }
+    }
+  }, [data]);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = React.useState(false);
   const [accountBalances, setAccountBalances] = React.useState<{[key: string]: number}>({});
 
@@ -216,12 +247,7 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
 
   // Calculate running account balance for each transaction
   const dataWithAccountBalance = React.useMemo(() => {
-    console.log('useMemo: calculating dataWithAccountBalance');
-    console.log('useMemo: input data length:', data?.length);
-    console.log('useMemo: accountBalances keys:', Object.keys(accountBalances));
-    
     if (!data || Object.keys(accountBalances).length === 0) {
-      console.log('useMemo: returning early - no data or no account balances');
       return data || [];
     }
     
@@ -229,8 +255,6 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
     const sortedData = [...data].sort((a, b) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-    
-    console.log('useMemo: sortedData length:', sortedData.length);
     
     // Create a copy of account balances starting from current balances
     const workingBalances = { ...accountBalances };
@@ -262,9 +286,6 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
       
       return { ...item, accountBalance: balanceAfterTransaction };
     });
-    
-    console.log('useMemo: final dataWithBalances length:', dataWithBalances.length);
-    console.log('useMemo: employee advances in final data:', dataWithBalances.filter(item => item.source_type === 'employee_advance'));
     
     return dataWithBalances;
   }, [data, accountBalances]);
@@ -504,24 +525,35 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
     },
   ]
 
-  // Filter data by date range
-  const filteredDataByDate = React.useMemo(() => {
-    if (!dateRange?.from || !dataWithAccountBalance) {
-      return dataWithAccountBalance || [];
+  // Filter data by date range and transaction type
+  const filteredData = React.useMemo(() => {
+    let filtered = dataWithAccountBalance || [];
+    
+    // Filter by date range
+    if (dateRange?.from) {
+      const fromDate = startOfDay(dateRange.from);
+      const toDate = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+      
+      filtered = filtered.filter(item => {
+        if (!item.created_at) return false;
+        const itemDate = new Date(item.created_at);
+        return itemDate >= fromDate && itemDate <= toDate;
+      });
     }
     
-    const fromDate = startOfDay(dateRange.from);
-    const toDate = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+    // Filter by transaction type
+    if (transactionTypeFilter !== "all") {
+      filtered = filtered.filter(item => {
+        const typeLabel = getTypeLabel(item);
+        return typeLabel === transactionTypeFilter;
+      });
+    }
     
-    return dataWithAccountBalance.filter(item => {
-      if (!item.created_at) return false;
-      const itemDate = new Date(item.created_at);
-      return itemDate >= fromDate && itemDate <= toDate;
-    });
-  }, [dataWithAccountBalance, dateRange]);
+    return filtered;
+  }, [dataWithAccountBalance, dateRange, transactionTypeFilter]);
 
   const table = useReactTable({
-    data: filteredDataByDate || [],
+    data: filteredData || [],
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -650,27 +682,58 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
         </div>
       </div>
 
-      {/* Date Range Filter */}
-      {onDateRangeChange && (
-        <div className="flex items-center gap-4 mb-4">
-          <DateRangePicker
-            date={dateRange}
-            onDateChange={onDateRangeChange}
-            className="w-auto"
-          />
-          {dateRange && (
+      {/* Date Range and Transaction Type Filters */}
+      <div className="flex items-center gap-4 mb-4">
+        {onDateRangeChange && (
+          <>
+            <DateRangePicker
+              date={dateRange}
+              onDateChange={onDateRangeChange}
+              className="w-auto"
+            />
+            {dateRange && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => onDateRangeChange(undefined)}
+                className="h-9 px-3"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear Date
+              </Button>
+            )}
+          </>
+        )}
+        
+        {/* Transaction Type Filter */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Jenis:</span>
+          <Select value={transactionTypeFilter} onValueChange={setTransactionTypeFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Pilih jenis transaksi..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Semua Jenis</SelectItem>
+              {availableTransactionTypes.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {transactionTypeFilter !== "all" && (
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={() => onDateRangeChange(undefined)}
+              onClick={() => setTransactionTypeFilter("all")}
               className="h-9 px-3"
             >
               <X className="h-4 w-4 mr-1" />
-              Clear Filter
+              Clear Type
             </Button>
           )}
         </div>
-      )}
+      </div>
 
       {/* Filters and Actions */}
       <div className="flex items-center justify-between">
@@ -684,19 +747,23 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
               }
             />
           </div>
-          {(table.getState().columnFilters.length > 0) && (
+          {(table.getState().columnFilters.length > 0 || dateRange || transactionTypeFilter !== "all") && (
             <div className="flex items-center gap-2">
               <div className="text-sm text-muted-foreground">
-                Menampilkan {table.getFilteredRowModel().rows.length} dari {table.getCoreRowModel().rows.length} transaksi
+                Menampilkan {table.getFilteredRowModel().rows.length} dari {(dataWithAccountBalance || []).length} transaksi
               </div>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                onClick={() => table.resetColumnFilters()}
+                onClick={() => {
+                  table.resetColumnFilters();
+                  setTransactionTypeFilter("all");
+                  if (onDateRangeChange) onDateRangeChange(undefined);
+                }}
                 className="h-8 px-2"
               >
                 <X className="h-4 w-4" />
-                Clear
+                Clear All
               </Button>
             </div>
           )}
@@ -748,9 +815,7 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
                 </TableRow>
               ))
             ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => {
-                console.log('Rendering row:', row.id, row.original);
-                return (
+              table.getRowModel().rows.map((row) => (
                   <TableRow key={row.id}>
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
@@ -761,8 +826,7 @@ export function CashFlowTable({ data, isLoading, onRefresh, dateRange, onDateRan
                       </TableCell>
                     ))}
                   </TableRow>
-                );
-              })
+              ))
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">

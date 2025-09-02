@@ -15,7 +15,6 @@ import { format } from 'date-fns'
 import { useToast } from '@/components/ui/use-toast'
 import { Textarea } from './ui/textarea'
 import { useProducts } from '@/hooks/useProducts'
-import { useUsers } from '@/hooks/useUsers'
 import { useAccounts } from '@/hooks/useAccounts'
 import { useTransactions } from '@/hooks/useTransactions'
 import { Product } from '@/types/product'
@@ -24,11 +23,8 @@ import { Transaction, TransactionItem, PaymentStatus } from '@/types/transaction
 import { CustomerSearchDialog } from './CustomerSearchDialog'
 import { AddCustomerDialog } from './AddCustomerDialog'
 import { PrintReceiptDialog } from './PrintReceiptDialog'
-import { DateTimePicker } from './ui/datetime-picker'
 import { useAuth } from '@/hooks/useAuth'
 import { createTimezoneDate } from '@/utils/timezoneUtils'
-import { id } from 'date-fns/locale/id'
-import { User } from '@/types/user'
 import { Quotation } from '@/types/quotation'
 import { useCustomers } from '@/hooks/useCustomers'
 
@@ -47,17 +43,15 @@ export const MobilePosForm = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { user: currentUser } = useAuth()
-  const { products, isLoading: isLoadingProducts } = useProducts()
-  const { users } = useUsers();
+  const { products } = useProducts()
   const { accounts, updateAccountBalance } = useAccounts();
   const { addTransaction } = useTransactions();
   const { customers } = useCustomers();
   
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [orderDate, setOrderDate] = useState<Date | undefined>(new Date())
-  const [finishDate, setFinishDate] = useState<Date | undefined>()
-  const [designerId, setDesignerId] = useState<string>('')
-  const [operatorId, setOperatorId] = useState<string>('')
+  const [finishDate] = useState<Date | undefined>()
+  const [designerId] = useState<string>('')
+  const [operatorId] = useState<string>('')
   const [paymentAccountId, setPaymentAccountId] = useState<string>('')
   const [items, setItems] = useState<FormTransactionItem[]>([])
   const [diskon, setDiskon] = useState(0)
@@ -115,8 +109,6 @@ export const MobilePosForm = () => {
   const totalTagihan = useMemo(() => subTotal - diskon, [subTotal, diskon]);
   const sisaTagihan = useMemo(() => totalTagihan - paidAmount, [totalTagihan, paidAmount]);
 
-  const designers = useMemo(() => users?.filter(u => u.role === 'designer'), [users]);
-  const operators = useMemo(() => users?.filter(u => u.role === 'operator'), [users]);
 
   useEffect(() => {
     setPaidAmount(totalTagihan);
@@ -184,6 +176,10 @@ export const MobilePosForm = () => {
       orderDate: createTimezoneDate(), // Consistent timezone timestamp
       finishDate: finishDate || null,
       items: transactionItems,
+      subtotal: subTotal,
+      ppnEnabled: false,
+      ppnPercentage: 0,
+      ppnAmount: 0,
       total: totalTagihan,
       paidAmount: paidAmount,
       paymentStatus: paymentStatus,
@@ -422,7 +418,7 @@ export const MobilePosForm = () => {
         <CardContent>
           {items.length > 0 ? (
             <div className="space-y-2">
-              {items.slice(0, 3).map((item, index) => (
+              {items.slice(0, 3).map((item) => (
                 <div key={item.id} className="flex justify-between items-start p-2 bg-muted rounded">
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{item.product?.name || 'Produk'}</p>

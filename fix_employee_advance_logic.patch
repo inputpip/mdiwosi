@@ -1,0 +1,25 @@
+// PERBAIKAN LOGIKA - Jangan hapus data panjar dari cash_history
+// File: src/hooks/useEmployeeAdvances.ts
+
+// SEBELUM (baris 170-181):
+/*
+// 1. Remove the original expense from cash_history
+const { error: deleteError } = await supabase
+  .from('cash_history')
+  .delete()
+  .eq('reference_number', `ADV-${advanceId.slice(4)}`)
+  .eq('source_type', 'employee_advance');
+
+if (deleteError) {
+  console.error('Failed to delete advance from cash_history:', deleteError.message);
+} else {
+  console.log('Successfully removed paid advance from cash_history');
+}
+*/
+
+// SESUDAH (logika baru):
+// 1. JANGAN HAPUS - Biarkan data expense tetap di cash_history untuk tracking
+console.log(`Panjar ${advanceId} sudah lunas, tetapi data expense dipertahankan untuk tracking`);
+
+// 2. Tambahkan catatan pelunasan sebagai record terpisah (opsional)
+// Ini akan menambah visibilitas tanpa menghapus data asli
