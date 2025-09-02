@@ -26,6 +26,7 @@ import { AddCustomerDialog } from './AddCustomerDialog'
 import { PrintReceiptDialog } from './PrintReceiptDialog'
 import { DateTimePicker } from './ui/datetime-picker'
 import { useAuth } from '@/hooks/useAuth'
+import { createTimezoneDate } from '@/utils/timezoneUtils'
 import { id } from 'date-fns/locale/id'
 import { User } from '@/types/user'
 import { Quotation } from '@/types/quotation'
@@ -180,7 +181,7 @@ export const MobilePosForm = () => {
       designerId: designerId || null,
       operatorId: operatorId || null,
       paymentAccountId: paymentAccountId || null,
-      orderDate: new Date(), // Auto timestamp
+      orderDate: createTimezoneDate(), // Consistent timezone timestamp
       finishDate: finishDate || null,
       items: transactionItems,
       total: totalTagihan,

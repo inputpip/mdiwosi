@@ -143,6 +143,16 @@ export const EditTransactionDialog = ({ open, onOpenChange, transaction }: EditT
       return;
     }
 
+    // Validasi tanggal tidak boleh masa depan
+    if (orderDate && orderDate > new Date()) {
+      toast({ 
+        variant: "destructive", 
+        title: "Validasi Gagal", 
+        description: "Tanggal order tidak boleh lebih dari hari ini." 
+      });
+      return;
+    }
+
     const transactionItems: TransactionItem[] = validItems.map(item => ({
       product: item.product!,
       quantity: item.qty,
@@ -215,6 +225,7 @@ export const EditTransactionDialog = ({ open, onOpenChange, transaction }: EditT
               <DateTimePicker
                 date={orderDate}
                 setDate={setOrderDate}
+                maxDate={new Date()}
               />
             </div>
             <div className="space-y-2">

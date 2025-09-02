@@ -10,12 +10,16 @@ import { Upload, Image as ImageIcon, MapPin } from 'lucide-react'
 import { useCompanySettings } from '@/hooks/useCompanySettings'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/hooks/useAuth'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { INDONESIA_TIMEZONES, getCurrentTimezone, setCurrentTimezone, getTimezoneInfo, createTimezoneDate, getCurrentTimezoneDateTime } from '@/utils/timezoneUtils'
+import { Clock } from 'lucide-react'
 
 export default function SettingsPage() {
   const { settings, isLoading, updateSettings } = useCompanySettings();
   const { toast } = useToast();
   const { user } = useAuth();
   const [localInfo, setLocalInfo] = useState({ name: '', address: '', phone: '', logo: '', latitude: null as number | null, longitude: null as number | null, attendanceRadius: 50 as number | null });
+  const [timezone, setTimezone] = useState(getCurrentTimezone());
 
   useEffect(() => {
     if (settings) {
@@ -70,6 +74,15 @@ export default function SettingsPage() {
         toast({ variant: "destructive", title: "Gagal", description: "Tidak dapat mengambil lokasi. Pastikan Anda memberikan izin." });
       }
     );
+  };
+
+  const handleTimezoneChange = (newTimezone: string) => {
+    setTimezone(newTimezone);
+    setCurrentTimezone(newTimezone);
+    toast({ 
+      title: "Timezone Diperbarui", 
+      description: `Zona waktu berhasil diubah ke ${getTimezoneInfo(newTimezone).name}` 
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -162,6 +175,75 @@ export default function SettingsPage() {
             <Button type="button" variant="secondary" onClick={handleGetCurrentLocation} className="mt-4">
               <MapPin className="mr-2 h-4 w-4" /> Gunakan Lokasi Saat Ini
             </Button>
+          </div>
+
+          <div className="pt-6 border-t">
+            <CardTitle className="text-lg mb-2">Pengaturan Zona Waktu</CardTitle>
+            <CardDescription className="mb-4">
+              Atur zona waktu untuk memastikan konsistensi tanggal dan waktu transaksi di seluruh sistem.
+            </CardDescription>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Zona Waktu Indonesia</Label>
+                <Select value={timezone} onValueChange={handleTimezoneChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Pilih zona waktu" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDONESIA_TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value}>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          <span>{tz.label}</span>
+                          <span className="text-muted-foreground">({tz.offset})</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="p-3 bg-muted rounded-lg">
+                <div className="text-sm space-y-2">
+                  <p><strong>Zona Waktu Aktif:</strong> {getTimezoneInfo(timezone).name}</p>
+                  <p><strong>Waktu Di Zona Ini:</strong> {new Intl.DateTimeFormat('id-ID', {
+                    timeZone: timezone,
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  }).format(new Date())}</p>
+                  <div className="pt-2 border-t border-muted-foreground/20">
+                    <p><strong>🎯 Transaksi Akan Menggunakan:</strong></p>
+                    <p className="text-base font-mono bg-background px-2 py-1 rounded border">
+                      {(() => {
+                        const transactionDate = createTimezoneDate();
+                        return transactionDate.toLocaleString('id-ID', {
+                          year: 'numeric',
+                          month: '2-digit', 
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                      })()}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      ↑ Ini tanggal yang akan tercatat di transaksi (bukan waktu komputer)
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                <p><strong>Catatan:</strong> Pengaturan ini akan mempengaruhi:</p>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li><strong>Tanggal input transaksi</strong> - Menggunakan waktu zona bisnis, bukan waktu komputer</li>
+                  <li><strong>Konsistensi data</strong> - Semua transaksi menggunakan zona waktu yang sama</li>
+                  <li><strong>Laporan dan invoice</strong> - Menampilkan waktu sesuai zona bisnis</li>
+                  <li><strong>Multi-lokasi</strong> - Mendukung bisnis dengan cabang di zona waktu berbeda</li>
+                </ul>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end pt-6 border-t">

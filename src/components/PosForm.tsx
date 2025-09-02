@@ -27,6 +27,7 @@ import { AddCustomerDialog } from './AddCustomerDialog'
 import { PrintReceiptDialog } from './PrintReceiptDialog'
 import { DateTimePicker } from './ui/datetime-picker'
 import { useAuth } from '@/hooks/useAuth'
+import { createTimezoneDate } from '@/utils/timezoneUtils'
 import { id } from 'date-fns/locale/id'
 import { User } from '@/types/user'
 import { Quotation } from '@/types/quotation'
@@ -190,7 +191,7 @@ export const PosForm = () => {
       designerId: designerId === 'none' ? null : designerId,
       operatorId: operatorId === 'none' ? null : operatorId,
       paymentAccountId: paymentAccountId || null,
-      orderDate: new Date(), // Auto timestamp
+      orderDate: createTimezoneDate(), // Consistent timezone timestamp
       finishDate: finishDate || null,
       items: transactionItems,
       subtotal: ppnCalculation.subtotal,

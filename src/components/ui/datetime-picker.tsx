@@ -19,9 +19,10 @@ import { ToggleGroup, ToggleGroupItem } from "./toggle-group"
 interface DateTimePickerProps {
   date: Date | undefined;
   setDate: (date: Date | undefined) => void;
+  maxDate?: Date;
 }
 
-export function DateTimePicker({ date, setDate }: DateTimePickerProps) {
+export function DateTimePicker({ date, setDate, maxDate }: DateTimePickerProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date);
   const [hour, setHour] = React.useState(date ? parseInt(format(date, "hh"), 10) : 12);
   const [minute, setMinute] = React.useState(date ? date.getMinutes() : 0);
@@ -103,6 +104,7 @@ export function DateTimePicker({ date, setDate }: DateTimePickerProps) {
           mode="single"
           selected={selectedDate}
           onSelect={handleDateSelect}
+          disabled={(date) => maxDate ? date > maxDate : false}
           initialFocus
         />
         <div className="p-3 border-t border-border">
