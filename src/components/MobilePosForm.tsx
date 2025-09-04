@@ -24,7 +24,6 @@ import { CustomerSearchDialog } from './CustomerSearchDialog'
 import { AddCustomerDialog } from './AddCustomerDialog'
 import { PrintReceiptDialog } from './PrintReceiptDialog'
 import { useAuth } from '@/hooks/useAuth'
-import { createTimezoneDate } from '@/utils/timezoneUtils'
 import { Quotation } from '@/types/quotation'
 import { useCustomers } from '@/hooks/useCustomers'
 
@@ -173,7 +172,7 @@ export const MobilePosForm = () => {
       designerId: designerId || null,
       operatorId: operatorId || null,
       paymentAccountId: paymentAccountId || null,
-      orderDate: createTimezoneDate(), // Consistent timezone timestamp
+      orderDate: new Date(), // Simple timestamp, consistent with cash flow
       finishDate: finishDate || null,
       items: transactionItems,
       subtotal: subTotal,

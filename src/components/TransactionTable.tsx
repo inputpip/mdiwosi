@@ -258,14 +258,7 @@ export function TransactionTable() {
         const dateValue = row.getValue("orderDate");
         if (!dateValue) return "N/A";
         const date = new Date(dateValue as string | number | Date);
-        // Use local time (JavaScript already converted UTC to WIT automatically)
-        const day = date.getDate();
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-        const month = months[date.getMonth()];
-        const year = date.getFullYear();
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        return `${day} ${month} ${year}, ${hours}:${minutes}`;
+        return format(date, "d MMM yyyy, HH:mm", { locale: id });
       },
     },
     {

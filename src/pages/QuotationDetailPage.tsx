@@ -10,7 +10,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { id } from "date-fns/locale/id"
-import { createTimezoneDate } from '@/utils/timezoneUtils'
 import { PrintQuotationDialog } from "@/components/PrintQuotationDialog"
 import { useToast } from "@/components/ui/use-toast"
 import {
@@ -52,7 +51,7 @@ export default function QuotationDetailPage() {
       customerName: quotation.customerName,
       cashierId: user.id,
       cashierName: user.name,
-      orderDate: createTimezoneDate(),
+      orderDate: new Date(),
       items: quotation.items,
       total: quotation.total,
       paidAmount: 0,
